@@ -3,6 +3,8 @@ import { Users, Search, ChevronRight, ChevronLeft, Radio, Globe, Shield, Refresh
 import { TelemetryUser, UserOnlineStatus } from '../../types/telemetry';
 import { telemetryEngine, SUPPORTED_COUNTRIES } from '../../utils/telemetryEngine';
 import { PlayerTelemetryInspectorModal } from './PlayerTelemetryInspectorModal';
+import { isSiteOwner } from '../../utils/owner';
+import { OwnerBadge } from '../OwnerBadge';
 
 interface GlobalUserListSidebarProps {
   isExpandedByDefault?: boolean;
@@ -159,6 +161,7 @@ export const GlobalUserListSidebar: React.FC<GlobalUserListSidebarProps> = ({
               </div>
             ) : (
               filteredUsers.map((u) => {
+                const isOwner = isSiteOwner(u.username);
                 let statusColor = 'bg-emerald-500 text-emerald-300 border-emerald-500/30';
                 if (u.onlineStatus === 'In Lobby') statusColor = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
                 if (u.onlineStatus === 'Spectating') statusColor = 'bg-sky-500/20 text-sky-300 border-sky-500/30';
@@ -167,21 +170,34 @@ export const GlobalUserListSidebar: React.FC<GlobalUserListSidebarProps> = ({
                   <div
                     key={u.userId}
                     onClick={() => setSelectedUserForInspector(u)}
-                    className="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800 hover:border-sky-500/40 hover:bg-slate-800/80 cursor-pointer transition flex items-center justify-between gap-2 group"
+                    className={`p-2.5 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 group ${
+                      isOwner
+                        ? 'bg-gradient-to-r from-amber-950/40 via-yellow-950/30 to-slate-900 border-amber-500/50 hover:border-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.2)]'
+                        : 'bg-slate-900/70 border-slate-800 hover:border-sky-500/40 hover:bg-slate-800/80'
+                    }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="relative shrink-0">
-                        <div className="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-black text-xs text-sky-400 group-hover:scale-105 transition">
-                          {u.username.charAt(0).toUpperCase()}
+                        <div className={`w-9 h-9 rounded-xl border flex items-center justify-center font-black text-xs group-hover:scale-105 transition ${
+                          isOwner
+                            ? 'bg-gradient-to-tr from-amber-400 to-yellow-600 text-slate-950 border-amber-300 font-extrabold shadow-md'
+                            : 'bg-slate-800 border-slate-700 text-sky-400'
+                        }`}>
+                          {isOwner ? '👑' : u.username.charAt(0).toUpperCase()}
                         </div>
                         <span className="absolute -bottom-1 -right-1 text-sm">{u.country.flagEmoji}</span>
                       </div>
 
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-extrabold text-white truncate group-hover:text-sky-300 transition">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`text-xs font-extrabold truncate transition ${
+                            isOwner ? 'text-amber-200 group-hover:text-amber-100 font-black' : 'text-white group-hover:text-sky-300'
+                          }`}>
                             {u.username}
                           </span>
+                          {isOwner && (
+                            <OwnerBadge username={u.username} size="xs" label="OWNER" />
+                          )}
                           <span className="text-[10px] font-mono font-bold text-amber-400">
                             #{u.globalRank}
                           </span>

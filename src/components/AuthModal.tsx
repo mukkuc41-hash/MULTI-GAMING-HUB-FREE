@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { UserSession } from '../types';
 import { loginUser, registerUser, clearStoredToken, logoutAllDevices, rotateGuestSession } from '../utils/auth';
-import { X, UserCheck, LogIn, UserPlus, ShieldAlert, LogOut, Shield, Lock, RefreshCw, Key, ShieldCheck } from 'lucide-react';
+import { X, UserCheck, LogIn, UserPlus, ShieldAlert, LogOut, Shield, Lock, RefreshCw, Key, ShieldCheck, Crown } from 'lucide-react';
+import { isSiteOwner } from '../utils/owner';
+import { OwnerBadge } from './OwnerBadge';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -103,15 +105,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* Current User Handle Banner */}
-        <div className="p-4 bg-white/5 border-b border-white/10 flex flex-col gap-3">
+        <div className={`p-4 border-b flex flex-col gap-3 transition-all ${
+          isSiteOwner(user?.username)
+            ? 'bg-gradient-to-r from-amber-950/40 via-yellow-950/30 to-slate-900 border-amber-500/40'
+            : 'bg-white/5 border-white/10'
+        }`}>
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-widest text-indigo-300/70">
-                Active Identity
+              <div className={`text-[10px] font-bold uppercase tracking-widest ${isSiteOwner(user?.username) ? 'text-amber-300' : 'text-indigo-300/70'}`}>
+                {isSiteOwner(user?.username) ? '👑 Verified Site Owner Identity' : 'Active Identity'}
               </div>
-              <div className="text-base font-bold text-white flex items-center gap-2 mt-0.5">
+              <div className="text-base font-bold text-white flex items-center gap-2 mt-0.5 flex-wrap">
                 <span>{user?.username || 'Guest'}</span>
-                {user?.isGuest ? (
+                {isSiteOwner(user?.username) ? (
+                  <OwnerBadge username={user?.username} size="xs" label="SITE OWNER" showSparkle={true} />
+                ) : user?.isGuest ? (
                   <span className="text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <ShieldCheck className="w-3 h-3 text-indigo-400" />
                     <span>Free Instant Guest</span>

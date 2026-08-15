@@ -3,6 +3,8 @@ import { X, Trophy, RefreshCw, UserCheck } from 'lucide-react';
 import { ActiveBoardGame } from '../types';
 import { socketService } from '../utils/socket';
 import { UserProfileModal } from './UserProfileModal';
+import { isSiteOwner } from '../utils/owner';
+import { OwnerBadge } from './OwnerBadge';
 
 export interface LeaderboardUser {
   username: string;
@@ -73,13 +75,15 @@ const ALL_GAMES: ActiveBoardGame[] = [
 // Seeded mock stats per game if backend data array is empty
 const SEEDED_LEADERBOARDS: Record<ActiveBoardGame, LeaderboardUser[]> = {
   chess: [
-    { username: 'Grandmaster_Alex', score: 2150, times_played: 50, wins: 42, losses: 5, draws: 3, resigns: 1, total_time_seconds: 14400, totalGames: 50, winRate: 84, global_rank: 1, lastActive: Date.now() },
-    { username: 'ChessKing_99', score: 1980, times_played: 51, wins: 38, losses: 9, draws: 4, resigns: 2, total_time_seconds: 12200, totalGames: 51, winRate: 75, global_rank: 2, lastActive: Date.now() },
-    { username: 'TacticsQueen', score: 1820, times_played: 45, wins: 31, losses: 12, draws: 2, resigns: 3, total_time_seconds: 9800, totalGames: 45, winRate: 69, global_rank: 3, lastActive: Date.now() },
+    { username: 'ADITYA-OWNER', score: 2650, times_played: 128, wins: 120, losses: 4, draws: 4, resigns: 0, total_time_seconds: 54000, totalGames: 128, winRate: 94, global_rank: 1, lastActive: Date.now() },
+    { username: 'Grandmaster_Alex', score: 2150, times_played: 50, wins: 42, losses: 5, draws: 3, resigns: 1, total_time_seconds: 14400, totalGames: 50, winRate: 84, global_rank: 2, lastActive: Date.now() - 3600000 },
+    { username: 'ChessKing_99', score: 1980, times_played: 51, wins: 38, losses: 9, draws: 4, resigns: 2, total_time_seconds: 12200, totalGames: 51, winRate: 75, global_rank: 3, lastActive: Date.now() - 7200000 },
+    { username: 'TacticsQueen', score: 1820, times_played: 45, wins: 31, losses: 12, draws: 2, resigns: 3, total_time_seconds: 9800, totalGames: 45, winRate: 69, global_rank: 4, lastActive: Date.now() - 10800000 },
   ],
   checkers: [
-    { username: 'CrownMaster_Sam', score: 2040, times_played: 44, wins: 39, losses: 4, draws: 1, resigns: 0, total_time_seconds: 8800, totalGames: 44, winRate: 88, global_rank: 1, lastActive: Date.now() },
-    { username: 'DoubleJump_Pro', score: 1890, times_played: 43, wins: 33, losses: 8, draws: 2, resigns: 1, total_time_seconds: 7600, totalGames: 43, winRate: 76, global_rank: 2, lastActive: Date.now() },
+    { username: 'ADITYA-OWNER', score: 2420, times_played: 95, wins: 88, losses: 4, draws: 3, resigns: 0, total_time_seconds: 28000, totalGames: 95, winRate: 93, global_rank: 1, lastActive: Date.now() },
+    { username: 'CrownMaster_Sam', score: 2040, times_played: 44, wins: 39, losses: 4, draws: 1, resigns: 0, total_time_seconds: 8800, totalGames: 44, winRate: 88, global_rank: 2, lastActive: Date.now() },
+    { username: 'DoubleJump_Pro', score: 1890, times_played: 43, wins: 33, losses: 8, draws: 2, resigns: 1, total_time_seconds: 7600, totalGames: 43, winRate: 76, global_rank: 3, lastActive: Date.now() },
   ],
   backgammon: [
     { username: 'PipMaster_Elena', score: 1920, times_played: 42, wins: 36, losses: 6, draws: 0, resigns: 1, total_time_seconds: 9200, totalGames: 42, winRate: 85, global_rank: 1, lastActive: Date.now() },
@@ -312,26 +316,43 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({
                   const resigns = u.resigns ?? 0;
                   const timeStr = formatTime(u.total_time_seconds);
 
+                  const isOwner = isSiteOwner(u.username);
+
                   return (
                     <tr
                       key={index}
-                      className="hover:bg-white/10 cursor-pointer transition animate-fadeIn"
+                      className={`cursor-pointer transition animate-fadeIn ${
+                        isOwner
+                          ? 'bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-600/15 hover:bg-amber-500/25 border-y border-amber-400/40'
+                          : 'hover:bg-white/10'
+                      }`}
                       onClick={() => setProfileUsername(u.username)}
                       title={`Click to view ${u.username}'s Profile`}
                     >
-                      <td className={`p-3 font-mono ${rankStyle}`}>#{rank}</td>
-                      <td className="p-3 font-bold text-white flex items-center gap-2">
-                        <span>{crown}</span>
-                        <span className="hover:underline hover:text-amber-300">{u.username}</span>
+                      <td className={`p-3 font-mono ${isOwner ? 'text-amber-300 font-black text-sm' : rankStyle}`}>
+                        #{rank}
                       </td>
-                      <td className="p-3 font-bold text-sky-400 font-mono">{score.toLocaleString()}</td>
+                      <td className="p-3 font-bold text-white flex items-center gap-2 flex-wrap">
+                        <span>{isOwner ? '👑' : crown}</span>
+                        <span className={`hover:underline ${isOwner ? 'text-amber-200 font-black' : 'hover:text-amber-300'}`}>
+                          {u.username}
+                        </span>
+                        {isOwner && (
+                          <OwnerBadge username={u.username} size="xs" label="OWNER" />
+                        )}
+                      </td>
+                      <td className={`p-3 font-bold font-mono ${isOwner ? 'text-amber-300 font-black' : 'text-sky-400'}`}>
+                        {score.toLocaleString()}
+                      </td>
                       <td className="p-3 font-mono">{played}</td>
                       <td className="p-3 text-emerald-400 font-bold">{u.wins}</td>
                       <td className="p-3 text-red-400">{u.losses}</td>
                       <td className="p-3 text-yellow-400">{u.draws}</td>
                       <td className="p-3 text-gray-400">{resigns}</td>
                       <td className="p-3 font-mono text-purple-300">{timeStr}</td>
-                      <td className="p-3 font-bold text-indigo-300">{u.winRate}%</td>
+                      <td className={`p-3 font-bold ${isOwner ? 'text-amber-300 font-black' : 'text-indigo-300'}`}>
+                        {u.winRate}%
+                      </td>
                     </tr>
                   );
                 })}

@@ -5,6 +5,8 @@ import { InGameEmotesBar } from './InGameEmotesBar';
 import { ShareProgressModal } from './ShareProgressModal';
 import { VoiceReportModal } from './VoiceReportModal';
 import { PlatformVoiceEngine } from '../utils/voiceEngine';
+import { isSiteOwner } from '../utils/owner';
+import { OwnerBadge } from './OwnerBadge';
 
 interface ChatPanelProps {
   roomId: string | null;
@@ -304,18 +306,27 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               );
             }
 
+            const isOwnerSender = isSiteOwner(msg.sender);
+
             return (
               <div
                 key={msg.id}
                 className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
               >
-                <div className="flex items-center gap-1.5 mb-0.5">
+                <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                   <span
-                    className={`font-bold text-[10px] ${
-                      isMe ? 'text-indigo-300' : 'text-emerald-300'
+                    className={`font-bold text-[10px] flex items-center gap-1 ${
+                      isOwnerSender
+                        ? 'text-amber-300 font-extrabold'
+                        : isMe
+                        ? 'text-indigo-300'
+                        : 'text-emerald-300'
                     }`}
                   >
                     {msg.sender}
+                    {isOwnerSender && (
+                      <OwnerBadge username={msg.sender} size="xs" label="OWNER" />
+                    )}
                   </span>
                   <span className="text-[9px] text-white/30">
                     {new Date(msg.timestamp).toLocaleTimeString([], {
@@ -323,7 +334,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                       minute: '2-digit',
                     })}
                   </span>
-                  {!isMe && (
+                  {!isMe && !isOwnerSender && (
                     <button
                       onClick={() => setReportModalUser(msg.sender)}
                       className="text-[9px] text-red-400/60 hover:text-red-400 transition ml-1"
@@ -335,7 +346,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 </div>
                 <div
                   className={`px-3 py-1.5 rounded-xl max-w-[85%] break-words ${
-                    isMe
+                    isOwnerSender
+                      ? 'bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-600/20 text-amber-100 border border-amber-400/40 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                      : isMe
                       ? 'bg-indigo-500 text-white shadow-sm'
                       : 'bg-white/10 text-white/90 border border-white/10'
                   }`}

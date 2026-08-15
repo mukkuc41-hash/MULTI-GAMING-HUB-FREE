@@ -24,6 +24,8 @@ import {
   Cloud,
 } from 'lucide-react';
 import { GameMode, UserSession, ActiveBoardGame } from '../types';
+import { isSiteOwner } from '../utils/owner';
+import { OwnerBadge } from './OwnerBadge';
 
 interface GameHeaderProps {
   activeBoardGame: ActiveBoardGame;
@@ -296,18 +298,24 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
           {/* User Handle Badge */}
           <button
             onClick={onOpenAuth}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition backdrop-blur-md"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition backdrop-blur-md ${
+              isSiteOwner(currentUser?.username)
+                ? 'bg-amber-500/15 hover:bg-amber-500/25 border-amber-400/50 shadow-[0_0_15px_rgba(245,158,11,0.25)]'
+                : 'bg-white/5 hover:bg-white/10 border-white/10'
+            }`}
             title="User Account & Authentication"
           >
-            <UserCheck className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="text-xs font-bold text-white">
+            <UserCheck className={`w-3.5 h-3.5 ${isSiteOwner(currentUser?.username) ? 'text-amber-400' : 'text-indigo-400'}`} />
+            <span className={`text-xs font-bold ${isSiteOwner(currentUser?.username) ? 'text-amber-200 font-extrabold' : 'text-white'}`}>
               {currentUser?.username || 'Guest'}
             </span>
-            {currentUser?.isGuest && (
+            {isSiteOwner(currentUser?.username) ? (
+              <OwnerBadge username={currentUser?.username} size="xs" label="OWNER" />
+            ) : currentUser?.isGuest ? (
               <span className="text-[9px] bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 px-1.5 py-0.2 rounded-full">
                 Guest
               </span>
-            )}
+            ) : null}
           </button>
 
           {/* Spectator Mode Indicator */}

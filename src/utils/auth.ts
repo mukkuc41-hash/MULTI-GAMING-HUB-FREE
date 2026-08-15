@@ -1,4 +1,7 @@
 import { UserSession, UserStats, MatchRecord, GuestSecurityDetails } from '../types';
+import { isSiteOwner } from './owner';
+
+export { isSiteOwner };
 
 const TOKEN_KEY = 'chess_pro_auth_token';
 const RESET_GUEST_KEY = 'chess_pro_guest_reset_v3';

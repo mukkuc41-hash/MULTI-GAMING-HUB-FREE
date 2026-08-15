@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X, Trophy, ShieldCheck, Flame, Radio, Clock, Award, CheckCircle2, Globe, BarChart2 } from 'lucide-react';
 import { TelemetryUser } from '../../types/telemetry';
 import { telemetryEngine } from '../../utils/telemetryEngine';
+import { isSiteOwner } from '../../utils/owner';
+import { OwnerBadge } from '../OwnerBadge';
 
 interface PlayerTelemetryInspectorModalProps {
   userOrId: TelemetryUser | string | null;
@@ -89,8 +91,11 @@ export const PlayerTelemetryInspectorModal: React.FC<PlayerTelemetryInspectorMod
           </div>
 
           <div className="flex-1 min-w-[200px]">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-xl font-extrabold text-white tracking-wide">{user.username}</h2>
+              {isSiteOwner(user.username) && (
+                <OwnerBadge username={user.username} size="sm" label="SITE OWNER" showSparkle={true} />
+              )}
               <span className="bg-emerald-500/20 border border-emerald-400/40 px-2 py-0.5 rounded-full text-[10px] font-bold text-emerald-400 flex items-center gap-1 animate-pulse">
                 <Radio className="w-3 h-3 text-emerald-400" /> {user.onlineStatus}
               </span>

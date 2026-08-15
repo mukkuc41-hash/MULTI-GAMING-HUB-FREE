@@ -1089,6 +1089,7 @@ app.post('/api/auth/register', async (req, res) => {
       username: user.username,
       email: user.email,
       isGuest: false,
+      isOwner: isSiteOwner(user.username),
       dailyStreak: user.dailyStreak || 1,
     });
   } catch (err) {
@@ -1164,6 +1165,7 @@ app.post('/api/auth/login', async (req, res) => {
       username: user.username,
       email: user.email,
       isGuest: false,
+      isOwner: isSiteOwner(user.username),
       dailyStreak: user.dailyStreak || 1,
     });
   } catch (err) {
@@ -1273,6 +1275,7 @@ app.post('/api/auth/refresh', (req, res) => {
     username: user.username,
     email: user.email,
     isGuest: user.isGuest,
+    isOwner: isSiteOwner(user.username),
     dailyStreak: user.dailyStreak || 1,
   });
 });
@@ -1379,6 +1382,7 @@ app.get('/api/auth/me', (req, res) => {
     username: user.username,
     email: user.email,
     isGuest: user.isGuest,
+    isOwner: isSiteOwner(user.username),
     dailyStreak: user.dailyStreak || 1,
   });
 });
@@ -1492,18 +1496,34 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
+function isSiteOwner(username?: string | null): boolean {
+  if (!username || typeof username !== 'string') return false;
+  const clean = username.trim().toLowerCase();
+  return (
+    clean === 'aditya-owner' ||
+    clean === 'aditya_owner' ||
+    clean === 'aditya owner' ||
+    clean === 'aditya' ||
+    clean.startsWith('aditya-owner') ||
+    clean.startsWith('aditya_owner')
+  );
+}
+
 // Per-game default top ranking seeds
 const SEEDED_LEADERBOARDS_MAP: Record<string, any[]> = {
   chess: [
-    { username: 'Grandmaster_Alex', score: 2150, times_played: 50, wins: 42, losses: 5, draws: 3, resigns: 1, total_time_seconds: 14400, lastActive: Date.now() },
-    { username: 'ChessKing_99', score: 1980, times_played: 51, wins: 38, losses: 9, draws: 4, resigns: 2, total_time_seconds: 12200, lastActive: Date.now() },
-    { username: 'TacticsQueen', score: 1820, times_played: 45, wins: 31, losses: 12, draws: 2, resigns: 3, total_time_seconds: 9800, lastActive: Date.now() },
+    { username: 'ADITYA-OWNER', score: 2650, times_played: 128, wins: 120, losses: 4, draws: 4, resigns: 0, total_time_seconds: 54000, lastActive: Date.now() },
+    { username: 'Grandmaster_Alex', score: 2150, times_played: 50, wins: 42, losses: 5, draws: 3, resigns: 1, total_time_seconds: 14400, lastActive: Date.now() - 3600000 },
+    { username: 'ChessKing_99', score: 1980, times_played: 51, wins: 38, losses: 9, draws: 4, resigns: 2, total_time_seconds: 12200, lastActive: Date.now() - 7200000 },
+    { username: 'TacticsQueen', score: 1820, times_played: 45, wins: 31, losses: 12, draws: 2, resigns: 3, total_time_seconds: 9800, lastActive: Date.now() - 10800000 },
   ],
   checkers: [
+    { username: 'ADITYA-OWNER', score: 2420, times_played: 95, wins: 88, losses: 4, draws: 3, resigns: 0, total_time_seconds: 28000, lastActive: Date.now() },
     { username: 'CrownMaster_Sam', score: 2040, times_played: 44, wins: 39, losses: 4, draws: 1, resigns: 0, total_time_seconds: 8800, lastActive: Date.now() },
     { username: 'DoubleJump_Pro', score: 1890, times_played: 43, wins: 33, losses: 8, draws: 2, resigns: 1, total_time_seconds: 7600, lastActive: Date.now() },
   ],
   backgammon: [
+    { username: 'ADITYA-OWNER', score: 2350, times_played: 80, wins: 74, losses: 6, draws: 0, resigns: 0, total_time_seconds: 24000, lastActive: Date.now() },
     { username: 'PipMaster_Elena', score: 1920, times_played: 42, wins: 36, losses: 6, draws: 0, resigns: 1, total_time_seconds: 9200, lastActive: Date.now() },
     { username: 'BearingOff_King', score: 1750, times_played: 40, wins: 30, losses: 10, draws: 0, resigns: 2, total_time_seconds: 8100, lastActive: Date.now() },
   ],
@@ -1745,6 +1765,11 @@ app.get('/api/users/:username/profile', (req, res) => {
       else if (userInLeaderboard.score >= 1000) rankTitle = 'Silver';
       else rankTitle = 'Bronze';
 
+      const isOwner = isSiteOwner(userInLeaderboard.username);
+      if (isOwner) {
+        rankTitle = 'Site Owner & Grandmaster';
+      }
+
       const userObj = usersByUsername.get(username.toLowerCase());
 
       return res.json({
@@ -1758,6 +1783,7 @@ app.get('/api/users/:username/profile', (req, res) => {
         losses: userInLeaderboard.losses || 0,
         draws: userInLeaderboard.draws || 0,
         resigns: userInLeaderboard.resigns || 0,
+        isOwner,
         dailyStreak: userObj?.dailyStreak || 1,
       });
     }
@@ -1814,18 +1840,20 @@ app.get('/api/users/:username/profile', (req, res) => {
       const times_played = userMatches.length;
       const score = Math.max(0, 1200 + wins * 25 - losses * 10 + draws * 5);
       const userObj = usersByUsername.get(targetUser.toLowerCase());
+      const isOwner = isSiteOwner(targetUser);
 
       return res.json({
         username: targetUser,
-        rank_title: times_played > 0 ? 'Gold' : 'Unranked',
-        rank_number: times_played > 0 ? 12 : 0,
-        score: times_played > 0 ? score : 1000,
+        rank_title: isOwner ? 'Site Owner & Grandmaster' : (times_played > 0 ? 'Gold' : 'Unranked'),
+        rank_number: isOwner ? 1 : (times_played > 0 ? 12 : 0),
+        score: isOwner ? Math.max(score, 2650) : (times_played > 0 ? score : 1000),
         total_time_seconds,
         times_played,
         wins,
         losses,
         draws,
         resigns,
+        isOwner,
         dailyStreak: userObj?.dailyStreak || 1,
       });
     }

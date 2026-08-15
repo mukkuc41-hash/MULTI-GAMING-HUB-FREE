@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { X, Trophy, Swords, Users, Calendar, Medal, Play, Shield, Sparkles, CheckCircle2 } from 'lucide-react';
+import { isSiteOwner } from '../utils/owner';
+import { OwnerBadge } from './OwnerBadge';
 
 interface TournamentModalProps {
   isOpen: boolean;
@@ -38,7 +40,7 @@ const SAMPLE_TOURNAMENTS: Tournament[] = [
     title: 'Grandmasters Blitz Championship',
     game: 'Chess',
     type: 'Single Elimination',
-    playersJoined: 14,
+    playersJoined: 15,
     maxPlayers: 16,
     prizePool: '5,000 XP + Master Badge',
     status: 'In Progress',
@@ -48,18 +50,18 @@ const SAMPLE_TOURNAMENTS: Tournament[] = [
         roundNumber: 1,
         title: 'Quarter Finals',
         matches: [
+          { id: 'm0', player1: 'ADITYA-OWNER', player2: 'Grandmaster_Alex', score1: 1, score2: 0, winner: 'ADITYA-OWNER', status: 'completed' },
           { id: 'm1', player1: 'Magnus_Fan', player2: 'Hikaru_Bot', score1: 1, score2: 0, winner: 'Magnus_Fan', status: 'completed' },
           { id: 'm2', player1: 'TacticalWizard', player2: 'CheckmateKing', score1: 0, score2: 1, winner: 'CheckmateKing', status: 'completed' },
           { id: 'm3', player1: 'DeepBlue_V2', player2: 'QueenGambit', score1: 1, score2: 0, winner: 'DeepBlue_V2', status: 'completed' },
-          { id: 'm4', player1: 'guest_483b825', player2: 'GrandmasterX', score1: 0, score2: 0, status: 'live' },
         ],
       },
       {
         roundNumber: 2,
         title: 'Semi Finals',
         matches: [
-          { id: 'm5', player1: 'Magnus_Fan', player2: 'CheckmateKing', status: 'upcoming' },
-          { id: 'm6', player1: 'DeepBlue_V2', player2: 'TBD', status: 'upcoming' },
+          { id: 'm5', player1: 'ADITYA-OWNER', player2: 'Magnus_Fan', status: 'live' },
+          { id: 'm6', player1: 'DeepBlue_V2', player2: 'CheckmateKing', status: 'upcoming' },
         ],
       },
       {
@@ -270,26 +272,40 @@ export const TournamentModal: React.FC<TournamentModalProps> = ({
                                 : 'bg-white/5 border-white/10'
                             }`}
                           >
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-1">
                               <span
-                                className={`font-semibold ${
-                                  m.winner === m.player1 ? 'text-amber-300 font-bold' : 'text-white/80'
+                                className={`font-semibold flex items-center gap-1 flex-wrap ${
+                                  isSiteOwner(m.player1)
+                                    ? 'text-amber-300 font-extrabold'
+                                    : m.winner === m.player1
+                                    ? 'text-amber-300 font-bold'
+                                    : 'text-white/80'
                                 }`}
                               >
                                 {m.player1}
+                                {isSiteOwner(m.player1) && (
+                                  <OwnerBadge username={m.player1} size="xs" label="OWNER" />
+                                )}
                               </span>
                               {m.score1 !== undefined && (
                                 <span className="font-bold text-indigo-300">{m.score1}</span>
                               )}
                             </div>
                             <div className="h-px bg-white/10 my-1" />
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-1">
                               <span
-                                className={`font-semibold ${
-                                  m.winner === m.player2 ? 'text-amber-300 font-bold' : 'text-white/80'
+                                className={`font-semibold flex items-center gap-1 flex-wrap ${
+                                  isSiteOwner(m.player2)
+                                    ? 'text-amber-300 font-extrabold'
+                                    : m.winner === m.player2
+                                    ? 'text-amber-300 font-bold'
+                                    : 'text-white/80'
                                 }`}
                               >
                                 {m.player2}
+                                {isSiteOwner(m.player2) && (
+                                  <OwnerBadge username={m.player2} size="xs" label="OWNER" />
+                                )}
                               </span>
                               {m.score2 !== undefined && (
                                 <span className="font-bold text-indigo-300">{m.score2}</span>

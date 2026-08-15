@@ -28,6 +28,7 @@ export interface PlayerInfo {
   name: string;
   avatar: string;
   rating?: number;
+  isOwner?: boolean;
 }
 
 export interface GuestSecurityDetails {
@@ -45,6 +46,7 @@ export interface UserSession {
   username: string;
   email?: string;
   isGuest: boolean;
+  isOwner?: boolean;
   dailyStreak?: number;
   guestDisplayHandle?: string;
   maskedHighEntropyToken?: string;

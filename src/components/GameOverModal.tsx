@@ -3,6 +3,8 @@ import confetti from 'canvas-confetti';
 import { GameResult, PlayerInfo } from '../types';
 import { Trophy, RefreshCw, Eye, ShieldAlert, Share2 } from 'lucide-react';
 import { ShareProgressModal } from './ShareProgressModal';
+import { isSiteOwner } from '../utils/owner';
+import { OwnerBadge } from './OwnerBadge';
 
 interface GameOverModalProps {
   result: GameResult;
@@ -82,11 +84,18 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           </div>
 
           {/* Main Heading */}
-          <h2 className="text-2xl font-bold text-white mb-1 tracking-tight">
+          <h2 className="text-2xl font-bold text-white mb-1 tracking-tight flex items-center justify-center gap-2 flex-wrap">
             {result.winner === 'draw' ? (
               'Draw Game'
             ) : (
-              <span className="text-indigo-300">{winnerPlayer?.name} Wins!</span>
+              <>
+                <span className={isSiteOwner(winnerPlayer?.name) ? 'text-amber-300 font-extrabold' : 'text-indigo-300'}>
+                  {winnerPlayer?.name} Wins!
+                </span>
+                {isSiteOwner(winnerPlayer?.name) && (
+                  <OwnerBadge username={winnerPlayer?.name} size="xs" label="OWNER" />
+                )}
+              </>
             )}
           </h2>
 

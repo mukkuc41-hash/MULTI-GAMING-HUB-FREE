@@ -11,6 +11,8 @@ import {
 } from 'recharts';
 import { telemetryEngine } from '../../utils/telemetryEngine';
 import { TelemetryUser } from '../../types/telemetry';
+import { isSiteOwner } from '../../utils/owner';
+import { OwnerBadge } from '../OwnerBadge';
 
 export const RivalryAndEloAnalytics: React.FC = () => {
   const [users, setUsers] = useState<TelemetryUser[]>([]);
@@ -160,15 +162,21 @@ export const RivalryAndEloAnalytics: React.FC = () => {
             {player1 && player2 && (
               <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-3 font-mono text-xs">
                 {/* Headers */}
-                <div className="grid grid-cols-3 text-center border-b border-slate-800 pb-2 font-bold">
-                  <div className="text-sky-300 flex items-center justify-center gap-1.5 truncate">
+                <div className="grid grid-cols-3 text-center border-b border-slate-800 pb-2 font-bold items-center">
+                  <div className="text-sky-300 flex items-center justify-center gap-1.5 flex-wrap">
                     <span>{player1.country.flagEmoji}</span>
-                    <span>{player1.username}</span>
+                    <span className={isSiteOwner(player1.username) ? 'text-amber-300 font-black' : ''}>{player1.username}</span>
+                    {isSiteOwner(player1.username) && (
+                      <OwnerBadge username={player1.username} size="xs" label="OWNER" />
+                    )}
                   </div>
                   <div className="text-slate-500 font-black uppercase text-[10px]">METRIC</div>
-                  <div className="text-purple-300 flex items-center justify-center gap-1.5 truncate">
+                  <div className="text-purple-300 flex items-center justify-center gap-1.5 flex-wrap">
                     <span>{player2.country.flagEmoji}</span>
-                    <span>{player2.username}</span>
+                    <span className={isSiteOwner(player2.username) ? 'text-amber-300 font-black' : ''}>{player2.username}</span>
+                    {isSiteOwner(player2.username) && (
+                      <OwnerBadge username={player2.username} size="xs" label="OWNER" />
+                    )}
                   </div>
                 </div>
 

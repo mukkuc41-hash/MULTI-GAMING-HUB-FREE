@@ -22,6 +22,8 @@ import {
   LogOut,
 } from 'lucide-react';
 import { fetchActiveSessions, fetchSecurityLogs, logoutAllDevices } from '../utils/auth';
+import { isSiteOwner } from '../utils/owner';
+import { OwnerBadge } from './OwnerBadge';
 
 interface ActivityItem {
   id: string;
@@ -363,8 +365,11 @@ export const CommunitySocialModal: React.FC<CommunitySocialModalProps> = ({
                     )}
                   </div>
                   <div className="flex-1 space-y-0.5">
-                    <div className="text-xs font-bold text-white flex items-center gap-2">
-                      <span>{item.username}</span>
+                    <div className="text-xs font-bold text-white flex items-center gap-2 flex-wrap">
+                      <span className={isSiteOwner(item.username) ? 'text-amber-300 font-extrabold' : ''}>{item.username}</span>
+                      {isSiteOwner(item.username) && (
+                        <OwnerBadge username={item.username} size="xs" label="OWNER" />
+                      )}
                       <span className="text-[10px] font-normal text-indigo-200/60 bg-white/5 px-2 py-0.5 rounded-full">
                         {item.game}
                       </span>

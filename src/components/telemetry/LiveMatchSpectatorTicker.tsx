@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Eye, Radio, Play, Activity, Tv, Shield, Award, Users, X } from 'lucide-react';
 import { telemetryEngine } from '../../utils/telemetryEngine';
 import { MoveTickerEvent, TelemetryUser } from '../../types/telemetry';
+import { isSiteOwner } from '../../utils/owner';
+import { OwnerBadge } from '../OwnerBadge';
 
 export const LiveMatchSpectatorTicker: React.FC = () => {
   const [events, setEvents] = useState<MoveTickerEvent[]>([]);
@@ -60,25 +62,36 @@ export const LiveMatchSpectatorTicker: React.FC = () => {
               No live spectator matches active at this moment. Join a game to stream live moves!
             </div>
           ) : (
-            activePlayers.map((u) => (
-              <div
-                key={u.userId}
-                className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 hover:border-sky-500/50 transition flex items-center justify-between gap-3 group"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="text-xl shrink-0">{u.country.flagEmoji}</span>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-extrabold text-white truncate group-hover:text-sky-300 transition">
-                        {u.username}
-                      </span>
-                      <span className="text-[10px] font-mono font-bold text-amber-400">
-                        {u.eloRating} Elo
-                      </span>
+            activePlayers.map((u) => {
+              const isOwner = isSiteOwner(u.username);
+              return (
+                <div
+                  key={u.userId}
+                  className={`p-3.5 rounded-2xl border transition flex items-center justify-between gap-3 group ${
+                    isOwner
+                      ? 'bg-gradient-to-r from-amber-950/40 via-yellow-950/30 to-slate-950 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+                      : 'bg-slate-950/80 border-slate-800 hover:border-sky-500/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="text-xl shrink-0">{u.country.flagEmoji}</span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`text-xs font-extrabold truncate transition ${
+                          isOwner ? 'text-amber-200 group-hover:text-amber-100 font-black' : 'text-white group-hover:text-sky-300'
+                        }`}>
+                          {u.username}
+                        </span>
+                        {isOwner && (
+                          <OwnerBadge username={u.username} size="xs" label="OWNER" />
+                        )}
+                        <span className="text-[10px] font-mono font-bold text-amber-400">
+                          {u.eloRating} Elo
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 truncate">{u.currentRoom}</p>
                     </div>
-                    <p className="text-[10px] text-slate-400 truncate">{u.currentRoom}</p>
                   </div>
-                </div>
 
                 <button
                   onClick={() =>
@@ -99,48 +112,49 @@ export const LiveMatchSpectatorTicker: React.FC = () => {
                   <Eye className="w-3.5 h-3.5" /> Spectate
                 </button>
               </div>
-            ))
-          )}
-        </div>
+            );
+          })
+        )}
       </div>
+    </div>
 
-      {/* Live Move Stream Ticker Log */}
-      <div className="space-y-2 pt-2 border-t border-slate-800/80">
-        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">
-          Sub-Second Move Stream Log
-        </h4>
-        <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-3 max-h-48 overflow-y-auto scrollbar-thin space-y-2">
-          {events.length === 0 ? (
-            <p className="text-xs text-slate-500 italic text-center py-2">
-              Waiting for turn moves from live players...
-            </p>
-          ) : (
-            events.map((e) => (
-              <div
-                key={e.id}
-                className="flex items-center justify-between gap-3 text-xs font-mono p-2 rounded-xl bg-slate-900/60 border border-slate-800/60 hover:bg-slate-800/60 transition"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-sm">{e.userCountry.flagEmoji}</span>
-                  <span className="font-extrabold text-sky-300">{e.username}</span>
-                  <span className="text-slate-400">({e.game.toUpperCase()})</span>
-                  <span className="text-slate-300 truncate">{e.moveDescription}</span>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[10px] font-bold">
-                    {e.moveNotation}
-                  </span>
-                  <button
-                    onClick={() => setSelectedEvent(e)}
-                    className="p-1 rounded bg-slate-800 text-slate-300 hover:text-white"
-                    title="Spectate Room"
-                  >
-                    <Eye className="w-3 h-3" />
-                  </button>
-                </div>
+    {/* Live Move Stream Ticker Log */}
+    <div className="space-y-2 pt-2 border-t border-slate-800/80">
+      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">
+        Sub-Second Move Stream Log
+      </h4>
+      <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-3 max-h-48 overflow-y-auto scrollbar-thin space-y-2">
+        {events.length === 0 ? (
+          <p className="text-xs text-slate-500 italic text-center py-2">
+            Waiting for turn moves from live players...
+          </p>
+        ) : (
+          events.map((e) => (
+            <div
+              key={e.id}
+              className="flex items-center justify-between gap-3 text-xs font-mono p-2 rounded-xl bg-slate-900/60 border border-slate-800/60 hover:bg-slate-800/60 transition"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-sm">{e.userCountry.flagEmoji}</span>
+                <span className="font-extrabold text-sky-300">{e.username}</span>
+                <span className="text-slate-400">({e.game.toUpperCase()})</span>
+                <span className="text-slate-300 truncate">{e.moveDescription}</span>
               </div>
-            ))
-          )}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30 text-[10px] font-bold">
+                  {e.moveNotation}
+                </span>
+                <button
+                  onClick={() => setSelectedEvent(e)}
+                  className="p-1 rounded bg-slate-800 text-slate-300 hover:text-white"
+                  title="Spectate Room"
+                >
+                  <Eye className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
         </div>
       </div>
 

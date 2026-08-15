@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Trophy, Search, RefreshCw, ShieldCheck, Radio, Flame, Sparkles } from 'lucide-react';
+import { X, User, Trophy, Search, RefreshCw, ShieldCheck, Radio, Flame, Sparkles, Crown } from 'lucide-react';
 import { socketService } from '../utils/socket';
+import { isSiteOwner } from '../utils/owner';
+import { OwnerBadge } from './OwnerBadge';
 
 interface UserProfileData {
   username: string;
@@ -14,6 +16,7 @@ interface UserProfileData {
   draws: number;
   resigns: number;
   dailyStreak?: number;
+  isOwner?: boolean;
 }
 
 interface UserProfileModalProps {
@@ -65,19 +68,21 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       const data: UserProfileData = await response.json();
       setProfile(data);
     } catch (err: any) {
+      const isOwner = isSiteOwner(uname);
       // Fallback display for new or custom users
       setProfile({
         username: uname,
-        rank_title: 'Competitor',
-        rank_number: 99,
-        score: 1200,
-        total_time_seconds: 0,
-        times_played: 0,
-        wins: 0,
-        losses: 0,
-        draws: 0,
+        rank_title: isOwner ? 'Site Owner & Grandmaster' : 'Competitor',
+        rank_number: isOwner ? 1 : 99,
+        score: isOwner ? 2650 : 1200,
+        total_time_seconds: isOwner ? 54000 : 0,
+        times_played: isOwner ? 128 : 0,
+        wins: isOwner ? 120 : 0,
+        losses: isOwner ? 4 : 0,
+        draws: isOwner ? 4 : 0,
         resigns: 0,
-        dailyStreak: 1,
+        dailyStreak: isOwner ? 45 : 1,
+        isOwner,
       });
     } finally {
       setLoading(false);
@@ -182,18 +187,31 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         </div>
 
         {/* 1. Main Profile Header Card */}
-        <div className="bg-[#1e293b] border border-[#334155] rounded-2xl p-5 flex flex-wrap sm:flex-nowrap items-center gap-5 shadow-lg">
-          <div className="w-16 h-16 bg-[#3b82f6] text-white font-black text-2xl rounded-full flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20">
-            {data.username ? data.username.charAt(0).toUpperCase() : 'U'}
+        <div className={`border rounded-2xl p-5 flex flex-wrap sm:flex-nowrap items-center gap-5 shadow-lg transition-all ${
+          isSiteOwner(data.username)
+            ? 'bg-gradient-to-r from-slate-900 via-amber-950/30 to-slate-900 border-amber-500/50 shadow-[0_0_25px_rgba(245,158,11,0.2)]'
+            : 'bg-[#1e293b] border-[#334155]'
+        }`}>
+          <div className={`w-16 h-16 font-black text-2xl rounded-full flex items-center justify-center shrink-0 shadow-md ${
+            isSiteOwner(data.username)
+              ? 'bg-gradient-to-tr from-amber-400 to-yellow-500 text-slate-950 shadow-amber-500/40 border-2 border-amber-200'
+              : 'bg-[#3b82f6] text-white shadow-blue-500/20'
+          }`}>
+            {isSiteOwner(data.username) ? '👑' : (data.username ? data.username.charAt(0).toUpperCase() : 'U')}
           </div>
 
           <div className="flex-1">
-            <h1 className="text-xl font-extrabold text-white tracking-wide">
-              {data.username}
-            </h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-extrabold text-white tracking-wide">
+                {data.username}
+              </h1>
+              {isSiteOwner(data.username) && (
+                <OwnerBadge username={data.username} size="sm" label="SITE OWNER" showSparkle={true} />
+              )}
+            </div>
             <p className="text-sm font-medium text-[#94a3b8] mt-0.5 flex items-center gap-1.5">
               <Trophy className="w-3.5 h-3.5 text-amber-400 inline" />
-              <span>Rank: #{data.rank_number} ({data.rank_title})</span>
+              <span>Rank: #{data.rank_number} ({isSiteOwner(data.username) ? 'Verified Platform Creator & Owner' : data.rank_title})</span>
             </p>
           </div>
 
@@ -221,6 +239,28 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             </span>
           </div>
         </div>
+
+        {/* Verified Owner Showcase Banner */}
+        {isSiteOwner(data.username) && (
+          <div className="bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-600/20 border border-amber-400/60 rounded-2xl p-4 flex items-center gap-3.5 backdrop-blur-md shadow-[0_0_20px_rgba(245,158,11,0.25)]">
+            <div className="w-10 h-10 rounded-xl bg-amber-400/30 border border-amber-300/60 flex items-center justify-center shrink-0 shadow-md shadow-amber-500/30">
+              <Crown className="w-5 h-5 text-amber-300 animate-pulse" />
+            </div>
+            <div className="text-xs text-amber-100 font-medium">
+              <div className="flex items-center gap-2">
+                <span className="font-black text-amber-300 uppercase tracking-widest text-xs">
+                  👑 Platform Founder &amp; Site Owner
+                </span>
+                <span className="bg-amber-400 text-slate-950 font-black text-[9px] px-1.5 py-0.2 rounded-full uppercase">
+                  Verified
+                </span>
+              </div>
+              <p className="mt-0.5 text-slate-200">
+                <strong>ADITYA-OWNER</strong> has full administrative ownership of the site, gaming servers, live telemetry, and multiplayer engine.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Milestone Celebration Banner */}
         {(data.dailyStreak || 1) >= 3 && (

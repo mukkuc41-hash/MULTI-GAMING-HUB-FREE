@@ -2,6 +2,8 @@ import React from 'react';
 import { ActiveBoardGame, GameMode, UserSession } from '../types';
 import { Bot, User, Pause, Play, Flag, Handshake, Dices, Crown, Shield, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
+import { isSiteOwner } from '../utils/owner';
+import { OwnerBadge } from './OwnerBadge';
 
 interface PlayerStatusCardDeckProps {
   activeBoardGame: ActiveBoardGame;
@@ -81,13 +83,16 @@ export const PlayerStatusCardDeck: React.FC<PlayerStatusCardDeckProps> = ({
                   ♔
                 </div>
                 <div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-xs font-black">{currentUser?.username || 'Player 1'}</span>
+                    {isSiteOwner(currentUser?.username) && (
+                      <OwnerBadge username={currentUser?.username} size="xs" label="OWNER" />
+                    )}
                     <span className="text-[10px] text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded font-semibold border border-amber-400/30">
                       WHITE PIECES
                     </span>
                   </div>
-                  <span className="text-[11px] text-gray-400">Rating: 1500 MMR</span>
+                  <span className="text-[11px] text-gray-400">Rating: {isSiteOwner(currentUser?.username) ? '2650 GM' : '1500 MMR'}</span>
                 </div>
               </div>
               <div className="text-right">
@@ -143,8 +148,11 @@ export const PlayerStatusCardDeck: React.FC<PlayerStatusCardDeckProps> = ({
                   👑
                 </div>
                 <div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-xs font-black">{currentUser?.username || 'Player 1'}</span>
+                    {isSiteOwner(currentUser?.username) && (
+                      <OwnerBadge username={currentUser?.username} size="xs" label="OWNER" />
+                    )}
                     <span className="text-[10px] text-red-300 bg-red-500/20 px-1.5 py-0.5 rounded font-semibold border border-red-400/30">
                       RED PIECES
                     </span>
@@ -205,8 +213,11 @@ export const PlayerStatusCardDeck: React.FC<PlayerStatusCardDeckProps> = ({
                   ⚪
                 </div>
                 <div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-xs font-black">{currentUser?.username || 'Player 1'}</span>
+                    {isSiteOwner(currentUser?.username) && (
+                      <OwnerBadge username={currentUser?.username} size="xs" label="OWNER" />
+                    )}
                     <span className="text-[10px] text-purple-300 bg-purple-500/20 px-1.5 py-0.5 rounded font-semibold border border-purple-400/30">
                       WHITE CHECKERS
                     </span>
