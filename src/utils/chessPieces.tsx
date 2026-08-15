@@ -12,7 +12,7 @@ export interface PieceProps {
  * - White pieces: crisp brilliant ivory/white (#ffffff) with bold charcoal contour outlines (#272522)
  * - Black pieces: matte slate charcoal (#454341) with dark contours (#1c1a18) and high-visibility white specular highlights (#ffffff)
  */
-export const ChessPiece: React.FC<PieceProps> = ({ type, color, className = 'w-full h-full p-0.5' }) => {
+export const ChessPiece: React.FC<PieceProps> = React.memo(({ type, color, className = 'w-full h-full p-0.5' }) => {
   const isWhite = color === 'w';
 
   const renderPieceSvg = () => {
@@ -535,4 +535,4 @@ export const ChessPiece: React.FC<PieceProps> = ({ type, color, className = 'w-f
       {renderPieceSvg()}
     </svg>
   );
-};
+});
