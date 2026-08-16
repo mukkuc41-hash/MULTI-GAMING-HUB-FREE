@@ -19,7 +19,10 @@ import {
   Code,
   Shield,
   Eye,
+  CheckCircle2,
+  Send,
 } from 'lucide-react';
+import { loadVfxSettings, saveVfxSettings, VfxSettings } from '../utils/cinematicVfx';
 
 export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king';
 export type MoveQuality = 'brilliant' | 'great' | 'best' | 'blunder' | 'checkmate' | 'sacrifice' | 'normal';
@@ -100,15 +103,16 @@ export const CinematicChessShowcase: React.FC<CinematicChessShowcaseProps> = ({
   const boardRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Sound Engine
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  // Sound Engine & VFX Settings
+  const initialSettings = loadVfxSettings();
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(initialSettings.soundEnabled);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   // Settings
-  const [animSpeed, setAnimSpeed] = useState<number>(1);
-  const [particleDensity, setParticleDensity] = useState<number>(36);
-  const [screenShakeEnabled, setScreenShakeEnabled] = useState<boolean>(true);
-  const [vfxTheme, setVfxTheme] = useState<'cyber' | 'royal' | 'inferno' | 'emerald'>('cyber');
+  const [animSpeed, setAnimSpeed] = useState<number>(initialSettings.animSpeed);
+  const [particleDensity, setParticleDensity] = useState<number>(initialSettings.particleDensity);
+  const [screenShakeEnabled, setScreenShakeEnabled] = useState<boolean>(initialSettings.screenShake);
+  const [vfxTheme, setVfxTheme] = useState<'cyber' | 'royal' | 'inferno' | 'emerald'>(initialSettings.vfxTheme || 'cyber');
 
   // Animation active state
   const [isAnimating, setIsAnimating] = useState<boolean>(false);

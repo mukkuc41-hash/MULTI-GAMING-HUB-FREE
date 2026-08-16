@@ -20,12 +20,16 @@ export const GameSettingsModal: React.FC<GameSettingsModalProps> = ({
   if (!isOpen) return null;
 
   const boardThemes: { id: BoardTheme; name: string; preview: string }[] = [
-    { id: 'terracotta', name: 'Terracotta Sienna (Image Match)', preview: 'bg-[#be5b3c]' },
-    { id: 'emerald', name: 'Emerald', preview: 'bg-emerald-700' },
-    { id: 'wood', name: 'Walnut Wood', preview: 'bg-amber-800' },
+    { id: 'cyber', name: 'Cyber Neon (Cinematic Image Match)', preview: 'bg-[#121c2a] border border-cyan-400' },
+    { id: 'terracotta', name: 'Terracotta Sienna', preview: 'bg-[#be5b3c]' },
+    { id: 'emerald', name: 'Emerald Tournament', preview: 'bg-emerald-700' },
+    { id: 'wood', name: 'Walnut & Maple Wood', preview: 'bg-amber-800' },
     { id: 'slate', name: 'Midnight Slate', preview: 'bg-slate-700' },
     { id: 'stone', name: 'Minimal Stone', preview: 'bg-stone-600' },
-    { id: 'neon', name: 'Modern Cyber', preview: 'bg-indigo-900' },
+    { id: 'neon', name: 'Cyberpunk Purple Neon', preview: 'bg-indigo-900' },
+    { id: 'ocean', name: 'Pacific Azure', preview: 'bg-sky-700' },
+    { id: 'crimson', name: 'Royal Velvet', preview: 'bg-rose-900' },
+    { id: 'glass', name: 'Nordic Crystal', preview: 'bg-slate-500' },
   ];
 
   const timePresets: { id: TimeControlPreset; label: string; desc: string }[] = [

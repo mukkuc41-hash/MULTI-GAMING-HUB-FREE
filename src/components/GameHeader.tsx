@@ -47,6 +47,8 @@ interface GameHeaderProps {
   onOpenSocialHub?: () => void;
   onOpenAskGemini: () => void;
   onOpenCinematicVfx?: () => void;
+  onOpenAnimationHub?: () => void;
+  onOpenDailyWheel?: () => void;
   onOpenPuzzles?: () => void;
   onOpenPositionEditor?: () => void;
   onOpenCustomSandbox?: () => void;
@@ -258,6 +260,8 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
   onOpenSocialHub,
   onOpenAskGemini,
   onOpenCinematicVfx,
+  onOpenAnimationHub,
+  onOpenDailyWheel,
   onOpenPuzzles,
   onOpenPositionEditor,
   onOpenCustomSandbox,
@@ -441,6 +445,30 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
 
         {/* Right: Tools, Gemini AI, Puzzles, Wheel Lobby, Leaderboard */}
         <div className="flex items-center gap-2 flex-wrap justify-end">
+          {/* Daily Lucky Spin Wheel Button */}
+          {onOpenDailyWheel && (
+            <button
+              onClick={onOpenDailyWheel}
+              className="flex items-center gap-1.5 text-xs font-black px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500/30 via-yellow-500/25 to-amber-500/30 hover:from-amber-500/45 hover:to-yellow-500/40 text-amber-200 border border-amber-400/60 transition shadow-[0_0_20px_rgba(245,158,11,0.35)] backdrop-blur-md active:scale-95 animate-pulse"
+              title="Spin Daily Lucky Wheel (Free 250 - 5,000 PTS every 24 hours)"
+            >
+              <RotateCw className="w-3.5 h-3.5 text-amber-300 animate-spin-slow" />
+              <span>Daily Wheel</span>
+            </button>
+          )}
+
+          {/* 96-Item Master Customization Hub Menu */}
+          {onOpenAnimationHub && (
+            <button
+              onClick={onOpenAnimationHub}
+              className="flex items-center gap-1.5 text-xs font-black px-3 py-2 rounded-xl bg-gradient-to-r from-emerald-500/25 via-teal-500/20 to-cyan-500/20 hover:from-emerald-500/40 hover:to-cyan-500/30 text-emerald-200 border border-emerald-400/50 transition shadow-[0_0_20px_rgba(46,204,113,0.35)] backdrop-blur-md active:scale-95"
+              title="Open 96-Item Master Customization Hub (Shop, Inventory, Sandbox)"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-emerald-300 animate-pulse" />
+              <span>96 FX Hub</span>
+            </button>
+          )}
+
           {/* Cinematic VFX & Animation Engine Button */}
           {onOpenCinematicVfx && (
             <button

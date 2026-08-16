@@ -50,6 +50,48 @@
   animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
 
+@keyframes shockwaveExpand {
+  0% {
+    width: 10px;
+    height: 10px;
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(1);
+    box-shadow: 0 0 20px currentColor, inset 0 0 10px currentColor;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    width: 140px;
+    height: 140px;
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.6);
+    box-shadow: 0 0 35px currentColor, inset 0 0 20px currentColor;
+  }
+}
+
+@keyframes badgeFloatUp {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -15px) scale(1.15);
+  }
+  40% {
+    transform: translate(-50%, -25px) scale(1);
+  }
+  80% {
+    opacity: 0.9;
+    transform: translate(-50%, -40px) scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -55px) scale(0.8);
+  }
+}
+
 /* Custom Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
@@ -66,4 +108,218 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.8);
 }
+
+/* ========================================================================
+   CHESS-WHEEL-ARENA: 96-STATE CAPTURE & OCCUPATION ANIMATION LIBRARY
+   6 Pieces (P, N, B, R, Q, K) x 8 States (4 Capturing + 4 Occupying)
+   Combined with 48 Visual Filters/Shadows/Properties = 96 Unique States
+   ======================================================================== */
+
+:root {
+  --base-speed: 0.5s;
+  --cap-speed: 0.5s;
+  --occ-speed: 0.5s;
+  --fx-primary: #ffffff;
+  --fx-secondary: #ffcc00;
+}
+
+/* Base State Classes Triggered by Game Engine */
+.piece-capturing {
+  animation-duration: var(--cap-speed, 0.5s) !important;
+  animation-fill-mode: forwards !important;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+  z-index: 30 !important;
+  pointer-events: none !important;
+}
+
+.piece-occupying {
+  animation-duration: var(--occ-speed, 0.5s) !important;
+  animation-fill-mode: forwards !important;
+  animation-timing-function: cubic-bezier(0, 0, 0.2, 1) !important;
+  z-index: 20 !important;
+}
+
+/* ========================================================================
+   MASTER KEYFRAME POOL (Shared structural motions)
+   ======================================================================== */
+@keyframes anim-core-dissolve {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0); }
+}
+
+@keyframes anim-core-emerge {
+  0% { opacity: 0; transform: scale(0); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes anim-core-spin-out {
+  0% { opacity: 1; transform: rotate(0deg) scale(1); }
+  100% { opacity: 0; transform: rotate(720deg) scale(0); }
+}
+
+@keyframes anim-core-spin-in {
+  0% { opacity: 0; transform: rotate(-720deg) scale(0); }
+  100% { opacity: 1; transform: rotate(0deg) scale(1); }
+}
+
+@keyframes anim-core-shatter {
+  0% { transform: translate(0); opacity: 1; }
+  50% { transform: translate(-4px, 4px) rotate(-10deg); opacity: 0.9; }
+  100% { opacity: 0; transform: translateY(40px) scale(1.4) rotate(20deg); }
+}
+
+@keyframes anim-core-assemble {
+  0% { opacity: 0; transform: translateY(-40px) scale(0.6); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes anim-core-portal-out {
+  0% { filter: brightness(1); opacity: 1; transform: scale(1); }
+  50% { filter: brightness(3) drop-shadow(0 0 15px var(--fx-primary)); }
+  100% { opacity: 0; transform: scale(0.2); filter: brightness(10); }
+}
+
+@keyframes anim-core-portal-in {
+  0% { opacity: 0; filter: brightness(10); transform: scale(1.8); }
+  100% { opacity: 1; filter: brightness(1); transform: scale(1); }
+}
+
+/* ========================================================================
+   PAWN (P) - 8 Unique Variations (4 Capture, 4 Occupy) + 8 Effect Modifiers
+   ======================================================================== */
+[data-piece="P"].piece-capturing.style-1,
+[data-piece="p"].piece-capturing.style-1 { animation-name: anim-core-dissolve; filter: drop-shadow(0 0 2px #888); }
+[data-piece="P"].piece-occupying.style-1,
+[data-piece="p"].piece-occupying.style-1 { animation-name: anim-core-emerge; filter: drop-shadow(0 0 2px #888); }
+
+[data-piece="P"].piece-capturing.style-2,
+[data-piece="p"].piece-capturing.style-2 { animation-name: anim-core-spin-out; filter: hue-rotate(45deg); }
+[data-piece="P"].piece-occupying.style-2,
+[data-piece="p"].piece-occupying.style-2 { animation-name: anim-core-spin-in; filter: hue-rotate(45deg); }
+
+[data-piece="P"].piece-capturing.style-3,
+[data-piece="p"].piece-capturing.style-3 { animation-name: anim-core-shatter; filter: saturate(2); }
+[data-piece="P"].piece-occupying.style-3,
+[data-piece="p"].piece-occupying.style-3 { animation-name: anim-core-assemble; filter: saturate(2); }
+
+[data-piece="P"].piece-capturing.style-4,
+[data-piece="p"].piece-capturing.style-4 { animation-name: anim-core-portal-out; --fx-primary: #ccc; }
+[data-piece="P"].piece-occupying.style-4,
+[data-piece="p"].piece-occupying.style-4 { animation-name: anim-core-portal-in; --fx-primary: #ccc; }
+
+/* ========================================================================
+   KNIGHT (N) - 8 Unique Variations (4 Capture, 4 Occupy) + 8 Effect Modifiers
+   ======================================================================== */
+[data-piece="N"].piece-capturing.style-1,
+[data-piece="n"].piece-capturing.style-1 { animation-name: anim-core-spin-out; filter: drop-shadow(0 0 6px #ff4444); }
+[data-piece="N"].piece-occupying.style-1,
+[data-piece="n"].piece-occupying.style-1 { animation-name: anim-core-spin-in; filter: drop-shadow(0 0 6px #44ff44); }
+
+[data-piece="N"].piece-capturing.style-2,
+[data-piece="n"].piece-capturing.style-2 { animation-name: anim-core-shatter; filter: contrast(150%); }
+[data-piece="N"].piece-occupying.style-2,
+[data-piece="n"].piece-occupying.style-2 { animation-name: anim-core-assemble; filter: contrast(150%); }
+
+[data-piece="N"].piece-capturing.style-3,
+[data-piece="n"].piece-capturing.style-3 { animation-name: anim-core-portal-out; --fx-primary: #ff9933; }
+[data-piece="N"].piece-occupying.style-3,
+[data-piece="n"].piece-occupying.style-3 { animation-name: anim-core-portal-in; --fx-primary: #ff9933; }
+
+[data-piece="N"].piece-capturing.style-4,
+[data-piece="n"].piece-capturing.style-4 { animation-name: anim-core-dissolve; transform-origin: top left; }
+[data-piece="N"].piece-occupying.style-4,
+[data-piece="n"].piece-occupying.style-4 { animation-name: anim-core-emerge; transform-origin: top left; }
+
+/* ========================================================================
+   BISHOP (B) - 8 Unique Variations (4 Capture, 4 Occupy) + 8 Effect Modifiers
+   ======================================================================== */
+[data-piece="B"].piece-capturing.style-1,
+[data-piece="b"].piece-capturing.style-1 { animation-name: anim-core-portal-out; --fx-primary: #33b5e5; }
+[data-piece="B"].piece-occupying.style-1,
+[data-piece="b"].piece-occupying.style-1 { animation-name: anim-core-portal-in; --fx-primary: #33b5e5; }
+
+[data-piece="B"].piece-capturing.style-2,
+[data-piece="b"].piece-capturing.style-2 { animation-name: anim-core-shatter; filter: brightness(1.2) sepia(0.5); }
+[data-piece="B"].piece-occupying.style-2,
+[data-piece="b"].piece-occupying.style-2 { animation-name: anim-core-assemble; filter: brightness(1.2) sepia(0.5); }
+
+[data-piece="B"].piece-capturing.style-3,
+[data-piece="b"].piece-capturing.style-3 { animation-name: anim-core-dissolve; filter: blur(1px); }
+[data-piece="B"].piece-occupying.style-3,
+[data-piece="b"].piece-occupying.style-3 { animation-name: anim-core-emerge; filter: blur(1px); }
+
+[data-piece="B"].piece-capturing.style-4,
+[data-piece="b"].piece-capturing.style-4 { animation-name: anim-core-spin-out; transform: skew(10deg); }
+[data-piece="B"].piece-occupying.style-4,
+[data-piece="b"].piece-occupying.style-4 { animation-name: anim-core-spin-in; transform: skew(10deg); }
+
+/* ========================================================================
+   ROOK (R) - 8 Unique Variations (4 Capture, 4 Occupy) + 8 Effect Modifiers
+   ======================================================================== */
+[data-piece="R"].piece-capturing.style-1,
+[data-piece="r"].piece-capturing.style-1 { animation-name: anim-core-shatter; filter: drop-shadow(0 0 8px #ff0000); }
+[data-piece="R"].piece-occupying.style-1,
+[data-piece="r"].piece-occupying.style-1 { animation-name: anim-core-assemble; filter: drop-shadow(0 0 8px #00ffff); }
+
+[data-piece="R"].piece-capturing.style-2,
+[data-piece="r"].piece-capturing.style-2 { animation-name: anim-core-dissolve; filter: invert(0.2); }
+[data-piece="R"].piece-occupying.style-2,
+[data-piece="r"].piece-occupying.style-2 { animation-name: anim-core-emerge; filter: invert(0.2); }
+
+[data-piece="R"].piece-capturing.style-3,
+[data-piece="r"].piece-capturing.style-3 { animation-name: anim-core-spin-out; --cap-speed: 0.4s; }
+[data-piece="R"].piece-occupying.style-3,
+[data-piece="r"].piece-occupying.style-3 { animation-name: anim-core-spin-in; --occ-speed: 0.4s; }
+
+[data-piece="R"].piece-capturing.style-4,
+[data-piece="r"].piece-capturing.style-4 { animation-name: anim-core-portal-out; --fx-primary: #aa66cc; }
+[data-piece="R"].piece-occupying.style-4,
+[data-piece="r"].piece-occupying.style-4 { animation-name: anim-core-portal-in; --fx-primary: #aa66cc; }
+
+/* ========================================================================
+   QUEEN (Q) - 8 Unique Variations (4 Capture, 4 Occupy) + 8 Effect Modifiers
+   ======================================================================== */
+[data-piece="Q"].piece-capturing.style-1,
+[data-piece="q"].piece-capturing.style-1 { animation-name: anim-core-portal-out; --fx-primary: #ff00ff; --cap-speed: 0.7s; }
+[data-piece="Q"].piece-occupying.style-1,
+[data-piece="q"].piece-occupying.style-1 { animation-name: anim-core-portal-in; --fx-primary: #ff00ff; --occ-speed: 0.7s; }
+
+[data-piece="Q"].piece-capturing.style-2,
+[data-piece="q"].piece-capturing.style-2 { animation-name: anim-core-spin-out; filter: drop-shadow(0 0 12px gold); }
+[data-piece="Q"].piece-occupying.style-2,
+[data-piece="q"].piece-occupying.style-2 { animation-name: anim-core-spin-in; filter: drop-shadow(0 0 12px gold); }
+
+[data-piece="Q"].piece-capturing.style-3,
+[data-piece="q"].piece-capturing.style-3 { animation-name: anim-core-shatter; filter: brightness(1.5); }
+[data-piece="Q"].piece-occupying.style-3,
+[data-piece="q"].piece-occupying.style-3 { animation-name: anim-core-assemble; filter: brightness(1.5); }
+
+[data-piece="Q"].piece-capturing.style-4,
+[data-piece="q"].piece-capturing.style-4 { animation-name: anim-core-dissolve; transform: scale(1.2); }
+[data-piece="Q"].piece-occupying.style-4,
+[data-piece="q"].piece-occupying.style-4 { animation-name: anim-core-emerge; transform: scale(1.2); }
+
+/* ========================================================================
+   KING (K) - 8 Unique Variations (4 Capture, 4 Occupy) + 8 Effect Modifiers
+   ======================================================================== */
+[data-piece="K"].piece-capturing.style-1,
+[data-piece="k"].piece-capturing.style-1 { animation-name: anim-core-shatter; filter: drop-shadow(0 0 15px #ffD700); --cap-speed: 0.8s; }
+[data-piece="K"].piece-occupying.style-1,
+[data-piece="k"].piece-occupying.style-1 { animation-name: anim-core-assemble; filter: drop-shadow(0 0 15px #ffD700); --occ-speed: 0.8s; }
+
+[data-piece="K"].piece-capturing.style-2,
+[data-piece="k"].piece-capturing.style-2 { animation-name: anim-core-portal-out; --fx-primary: gold; }
+[data-piece="K"].piece-occupying.style-2,
+[data-piece="k"].piece-occupying.style-2 { animation-name: anim-core-portal-in; --fx-primary: gold; }
+
+[data-piece="K"].piece-capturing.style-3,
+[data-piece="k"].piece-capturing.style-3 { animation-name: anim-core-spin-out; filter: contrast(200%); }
+[data-piece="K"].piece-occupying.style-3,
+[data-piece="k"].piece-occupying.style-3 { animation-name: anim-core-spin-in; filter: contrast(200%); }
+
+[data-piece="K"].piece-capturing.style-4,
+[data-piece="k"].piece-capturing.style-4 { animation-name: anim-core-dissolve; filter: sepia(1); }
+[data-piece="K"].piece-occupying.style-4,
+[data-piece="k"].piece-occupying.style-4 { animation-name: anim-core-emerge; filter: sepia(1); }
+
 

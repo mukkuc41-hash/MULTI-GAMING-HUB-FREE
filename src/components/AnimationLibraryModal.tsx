@@ -1,20 +1,35 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Sparkles, Layers, Box, Eye, Wand2, Play, MousePointer, Activity } from 'lucide-react';
+import { X, Sparkles, Layers, Box, Eye, Wand2, Play, MousePointer, Activity, Shield, Swords, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { VARIATIONS_96_MATRIX, PieceElementCode } from '../utils/cinematicVfx';
+import { ChessPiece } from '../utils/chessPieces';
 
 interface AnimationLibraryModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenCinematicVfx?: () => void;
+  onOpenMasterHub?: () => void;
 }
 
-export const AnimationLibraryModal: React.FC<AnimationLibraryModalProps> = ({ isOpen, onClose, onOpenCinematicVfx }) => {
+export const AnimationLibraryModal: React.FC<AnimationLibraryModalProps> = ({
+  isOpen,
+  onClose,
+  onOpenCinematicVfx,
+  onOpenMasterHub,
+}) => {
   // Shake animation trigger
   const [isShaking, setIsShaking] = useState(false);
 
   // Modal & Drawer inside demo state
   const [demoModalOpen, setDemoModalOpen] = useState(false);
   const [demoDrawerOpen, setDemoDrawerOpen] = useState(false);
+
+  // 96-State Animation Matrix Explorer State
+  const [matrixPiece, setMatrixPiece] = useState<PieceElementCode>('N');
+  const [matrixAction, setMatrixAction] = useState<'all' | 'capturing' | 'occupying'>('all');
+  const [matrixStyle, setMatrixStyle] = useState<'all' | 1 | 2 | 3 | 4>('all');
+  const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
+  const [animTriggerKey, setAnimTriggerKey] = useState<number>(1);
 
   // FLIP animation slot state
   const [slotIdx, setSlotIdx] = useState<number>(1);
@@ -179,27 +194,207 @@ export const AnimationLibraryModal: React.FC<AnimationLibraryModalProps> = ({ is
                 Featuring piece-specific parabolic 3D trajectories (Knight L-jump, King royal glide, Pawn lunge), screen shockwaves, canvas spark physics, synthesized sound effects, and floating evaluation badges (!!, ??, #).
               </p>
             </div>
-            <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
+            <div className="flex flex-wrap items-center gap-2 shrink-0 w-full md:w-auto">
+              {onOpenMasterHub && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onOpenMasterHub();
+                  }}
+                  className="w-full md:w-auto px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs rounded-xl shadow-[0_0_20px_rgba(46,204,113,0.4)] transition active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>96-Item Master Hub</span>
+                </button>
+              )}
               {onOpenCinematicVfx && (
                 <button
                   onClick={() => {
                     onClose();
                     onOpenCinematicVfx();
                   }}
-                  className="w-full md:w-auto px-5 py-2.5 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 text-slate-950 font-black text-xs rounded-xl shadow-[0_0_20px_rgba(0,242,254,0.4)] transition active:scale-95 flex items-center justify-center gap-2"
+                  className="w-full md:w-auto px-4 py-2.5 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 text-slate-950 font-black text-xs rounded-xl shadow-[0_0_20px_rgba(0,242,254,0.4)] transition active:scale-95 flex items-center justify-center gap-2"
                 >
                   <Sparkles className="w-4 h-4" />
                   <span>Launch VFX Studio</span>
                 </button>
               )}
               <a
-                href="/cinematic-chess.html"
+                href="/master-customization-hub.html"
                 target="_blank"
                 rel="noreferrer"
                 className="w-full md:w-auto px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition text-center"
               >
-                Open Standalone Tab
+                Standalone Hub
               </a>
+            </div>
+          </div>
+
+          {/* 96-State Chess Piece Variations Architecture & Live Interactive Explorer */}
+          <div className="md:col-span-2 lg:col-span-3 bg-[#131922] border-2 border-indigo-500/30 rounded-2xl p-5 shadow-2xl flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-400/40">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white flex items-center gap-2">
+                    <span>96 Unique Chess Piece Variations Matrix</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-400/30">
+                      48 Animations + 48 Effects
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    6 Pieces (P, N, B, R, Q, K) &times; 8 States (4 Capturing + 4 Occupying) with hardware-accelerated CSS Keyframes &amp; VFX modifiers.
+                  </p>
+                </div>
+              </div>
+
+              {/* Filter Tabs */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Piece Selector */}
+                <div className="flex items-center bg-black/50 p-1 rounded-xl border border-white/10">
+                  {(['P', 'N', 'B', 'R', 'Q', 'K'] as PieceElementCode[]).map((pCode) => (
+                    <button
+                      key={pCode}
+                      onClick={() => {
+                        setMatrixPiece(pCode);
+                        setAnimTriggerKey((k) => k + 1);
+                      }}
+                      className={`w-7 h-7 rounded-lg font-black text-xs transition flex items-center justify-center ${
+                        matrixPiece === pCode
+                          ? 'bg-indigo-500 text-white shadow-[0_0_12px_#6366f1]'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {pCode}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Action Mode Selector */}
+                <div className="flex items-center bg-black/50 p-1 rounded-xl border border-white/10">
+                  {(['all', 'capturing', 'occupying'] as const).map((act) => (
+                    <button
+                      key={act}
+                      onClick={() => {
+                        setMatrixAction(act);
+                        setAnimTriggerKey((k) => k + 1);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-black transition capitalize flex items-center gap-1 ${
+                        matrixAction === act
+                          ? act === 'capturing'
+                            ? 'bg-rose-500 text-white shadow-[0_0_10px_#ef4444]'
+                            : act === 'occupying'
+                            ? 'bg-emerald-500 text-slate-950 shadow-[0_0_10px_#10b981]'
+                            : 'bg-indigo-500 text-white'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {act === 'capturing' && <Swords className="w-3 h-3" />}
+                      {act === 'occupying' && <Shield className="w-3 h-3" />}
+                      {act === 'all' ? 'All (8)' : act}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Refresh Trigger */}
+                <button
+                  onClick={() => setAnimTriggerKey((k) => k + 1)}
+                  className="p-2 bg-white/5 hover:bg-white/15 rounded-xl border border-white/10 text-cyan-300 hover:text-white transition"
+                  title="Re-play all preview animations"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Matrix Cards Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {VARIATIONS_96_MATRIX.filter(
+                (v) =>
+                  v.piece === matrixPiece &&
+                  (matrixAction === 'all' || v.action === matrixAction) &&
+                  (matrixStyle === 'all' || v.styleIndex === matrixStyle)
+              ).map((v) => {
+                const isCapturing = v.action === 'capturing';
+                const isSelected = activePreviewId === v.id;
+                return (
+                  <div
+                    key={`${v.id}-${animTriggerKey}`}
+                    onClick={() => setActivePreviewId(v.id)}
+                    className={`relative p-3.5 rounded-xl border transition-all duration-200 flex flex-col justify-between gap-3 cursor-pointer ${
+                      isSelected
+                        ? 'bg-slate-900 border-cyan-400 shadow-[0_0_20px_rgba(0,242,254,0.3)]'
+                        : 'bg-black/40 hover:bg-slate-900/80 border-white/10'
+                    }`}
+                  >
+                    {/* Top Row: Piece and Badge */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center ${
+                            isCapturing ? 'bg-rose-500/20 text-rose-300 border border-rose-400/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
+                          }`}
+                        >
+                          {v.piece}
+                        </span>
+                        <span className="text-xs font-black text-white">
+                          Style {v.styleIndex}
+                        </span>
+                      </div>
+                      <span
+                        className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                          isCapturing
+                            ? 'bg-rose-950/80 text-rose-400 border border-rose-500/40'
+                            : 'bg-emerald-950/80 text-emerald-400 border border-emerald-500/40'
+                        }`}
+                      >
+                        {isCapturing ? <Swords className="w-2.5 h-2.5" /> : <Shield className="w-2.5 h-2.5" />}
+                        {v.action}
+                      </span>
+                    </div>
+
+                    {/* Center Animated Piece Preview Arena */}
+                    <div className="w-full h-24 rounded-lg bg-slate-950/90 border border-white/5 relative flex items-center justify-center overflow-hidden group">
+                      <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:8px_8px]" />
+                      
+                      {/* Animated Piece Subject */}
+                      <div
+                        data-piece={v.piece}
+                        className={`piece-${v.action} style-${v.styleIndex} relative z-10 w-14 h-14 flex items-center justify-center transform transition-transform group-hover:scale-110`}
+                      >
+                        <ChessPiece
+                          type={v.piece.toLowerCase() as 'p' | 'n' | 'b' | 'r' | 'q' | 'k'}
+                          color={isCapturing ? 'b' : 'w'}
+                        />
+                      </div>
+
+                      {/* Click to re-trigger prompt */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setAnimTriggerKey((k) => k + 1);
+                        }}
+                        className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition p-1 rounded bg-white/10 hover:bg-white/20 text-white text-[9px] flex items-center gap-1 z-20"
+                      >
+                        <Play className="w-2.5 h-2.5" /> Replay
+                      </button>
+                    </div>
+
+                    {/* Bottom Specs & Keyframe Info */}
+                    <div className="space-y-1 text-[10px]">
+                      <div className="flex items-center justify-between text-slate-400 font-mono">
+                        <span>{v.animationName.replace('anim-core-', '')}</span>
+                        <span style={{ color: v.colorAccent }} className="font-bold">{v.speed}</span>
+                      </div>
+                      <p className="text-slate-300 text-[10px] leading-tight line-clamp-2">
+                        {v.description}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

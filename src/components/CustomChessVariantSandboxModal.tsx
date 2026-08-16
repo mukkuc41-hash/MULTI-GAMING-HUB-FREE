@@ -166,6 +166,15 @@ const SANDBOX_THEMES: Record<
     border: 'border-slate-600',
     frameBg: 'bg-[#111827]',
   },
+  cyber: {
+    name: 'Cyber Neon (Cinematic Image Match)',
+    light: 'bg-[#28384f]',
+    dark: 'bg-[#121c2a]',
+    lightText: 'text-[#38bdf8]',
+    darkText: 'text-[#00f2fe]',
+    border: 'border-cyan-400',
+    frameBg: 'bg-[#070e1b]',
+  },
 };
 
 const parsePieceCode = (code: string): { type: 'p' | 'n' | 'b' | 'r' | 'q' | 'k'; color: 'w' | 'b' } | null => {

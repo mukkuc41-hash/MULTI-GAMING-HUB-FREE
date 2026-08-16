@@ -56,6 +56,8 @@ import { GameOptionsControlPanel } from './components/GameOptionsControlPanel';
 import { GameRulesModal } from './components/GameRulesModal';
 import { AnimationLibraryModal } from './components/AnimationLibraryModal';
 import { CinematicChessShowcase } from './components/CinematicChessShowcase';
+import { AnimationEffectsMasterHubModal } from './components/AnimationEffectsMasterHubModal';
+import { DailyWheelModal } from './components/DailyWheelModal';
 import { PlayerStatusCardDeck } from './components/PlayerStatusCardDeck';
 import { PrivacyTermsModal } from './components/PrivacyTermsModal';
 import { CommunitySocialModal } from './components/CommunitySocialModal';
@@ -71,8 +73,9 @@ import { GoogleConnectModal } from './components/GoogleConnectModal';
 import { telemetryEngine } from './utils/telemetryEngine';
 import { evaluateBoard } from './utils/evalEngine';
 import { detectOpening } from './utils/openingBook';
+import { recordPlayerCaptureForHatrick, updateQuestProgress } from './utils/pointsManager';
 
-import { RotateCcw, BookOpen, Wand2, ShieldAlert, Flame, Sliders, History } from 'lucide-react';
+import { RotateCcw, BookOpen, Wand2, ShieldAlert, Flame, Sliders, History, Sparkles } from 'lucide-react';
 import { layoutToFen } from './utils/variantManager';
 import { soundFx } from './utils/audio';
 import {
@@ -162,6 +165,9 @@ export default function App() {
   const [isRulesModalOpen, setIsRulesModalOpen] = useState<boolean>(false);
   const [isAnimationLibraryOpen, setIsAnimationLibraryOpen] = useState<boolean>(false);
   const [isCinematicVfxOpen, setIsCinematicVfxOpen] = useState<boolean>(false);
+  const [isMasterHubOpen, setIsMasterHubOpen] = useState<boolean>(false);
+  const [isDailyWheelOpen, setIsDailyWheelOpen] = useState<boolean>(false);
+  const [hatrickNotification, setHatrickNotification] = useState<{ show: boolean; reward: number; streak: number } | null>(null);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState<boolean>(false);
   const [privacyModalTab, setPrivacyModalTab] = useState<'privacy' | 'terms' | 'appflow'>('privacy');
   const [isTelemetryOpen, setIsTelemetryOpen] = useState<boolean>(false);
@@ -237,8 +243,21 @@ export default function App() {
     };
 
     window.addEventListener('token_compromised_alert', handleCompromiseAlert);
+
+    const handleHatrickAchieved = (e: any) => {
+      const { reward, streak } = e.detail || { reward: 2000, streak: 3 };
+      setHatrickNotification({ show: true, reward, streak });
+      soundFx.playGameOver(true);
+      setTimeout(() => {
+        setHatrickNotification(null);
+      }, 6000);
+    };
+
+    window.addEventListener('chess_hatrick_achieved', handleHatrickAchieved);
+
     return () => {
       window.removeEventListener('token_compromised_alert', handleCompromiseAlert);
+      window.removeEventListener('chess_hatrick_achieved', handleHatrickAchieved);
     };
   }, []);
 
@@ -571,6 +590,32 @@ export default function App() {
         setMoveRecords(updatedHistory);
         setCurrentMoveIndex(updatedHistory.length - 1);
 
+        // Update Quest & Hatrick Progress for player actions
+        const isPlayerTurn = (gameMode === 'ai' && moveResult.color === orientation) ||
+                             (gameMode === 'local') ||
+                             (gameMode === 'pvp' && moveResult.color === myPvPColor);
+
+        if (isPlayerTurn) {
+          updateQuestProgress('moves', 1);
+
+          if (moveResult.captured) {
+            recordPlayerCaptureForHatrick(moveResult.captured);
+            updateQuestProgress('capture', 1);
+          }
+
+          if (chess.isCheck()) {
+            updateQuestProgress('check', 1);
+          }
+
+          if (moveResult.san.includes('O-O')) {
+            updateQuestProgress('castle', 1);
+          }
+
+          if (moveResult.promotion) {
+            updateQuestProgress('promote', 1);
+          }
+        }
+
         // Check game over conditions
         let isGameOver = false;
         let winnerRes: 'w' | 'b' | 'draw' = 'draw';
@@ -582,6 +627,9 @@ export default function App() {
           reasonRes = 'checkmate';
           setIsGameActive(false);
           setGameResult({ winner: winnerRes, reason: 'checkmate' });
+          if (isPlayerTurn && winnerRes === moveResult.color) {
+            updateQuestProgress('win', 1);
+          }
         } else if (chess.isStalemate()) {
           isGameOver = true;
           winnerRes = 'draw';
@@ -900,6 +948,8 @@ export default function App() {
         onOpenSocialHub={() => setIsSocialHubOpen(true)}
         onOpenAskGemini={() => setIsAskGeminiOpen(true)}
         onOpenCinematicVfx={() => setIsCinematicVfxOpen(true)}
+        onOpenAnimationHub={() => setIsMasterHubOpen(true)}
+        onOpenDailyWheel={() => setIsDailyWheelOpen(true)}
         onOpenPuzzles={() => setIsPuzzleOpen(true)}
         onOpenPositionEditor={() => setIsPositionEditorOpen(true)}
         onOpenCustomSandbox={() => setIsCustomSandboxOpen(true)}
@@ -1231,11 +1281,11 @@ export default function App() {
             </div>
           )}
 
-          {/* Action Row: Reset, Rules & Motion Library */}
-          <div className="w-full max-w-[580px] flex items-center gap-2 mt-2">
+          {/* Action Row: Reset, Rules, 96 FX Hub & Motion Library */}
+          <div className="w-full max-w-[580px] grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
             <button
               onClick={resetGame}
-              className="flex-1 py-2.5 px-3 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-white font-bold text-xs border border-white/10 hover:border-amber-400/40 shadow-lg transition active:scale-95 flex items-center justify-center gap-1.5"
+              className="py-2.5 px-3 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-white font-bold text-xs border border-white/10 hover:border-amber-400/40 shadow-lg transition active:scale-95 flex items-center justify-center gap-1.5"
             >
               <RotateCcw className="w-4 h-4 text-amber-400" />
               <span>Reset</span>
@@ -1243,18 +1293,26 @@ export default function App() {
 
             <button
               onClick={() => setIsRulesModalOpen(true)}
-              className="flex-1 py-2.5 px-3 rounded-2xl bg-gradient-to-r from-amber-500/20 to-purple-500/20 hover:from-amber-500/30 hover:to-purple-500/30 text-[#ffe89e] font-extrabold text-xs border border-[#f3ce6b]/40 shadow-lg transition active:scale-95 flex items-center justify-center gap-1.5"
+              className="py-2.5 px-3 rounded-2xl bg-gradient-to-r from-amber-500/20 to-purple-500/20 hover:from-amber-500/30 hover:to-purple-500/30 text-[#ffe89e] font-extrabold text-xs border border-[#f3ce6b]/40 shadow-lg transition active:scale-95 flex items-center justify-center gap-1.5"
             >
               <BookOpen className="w-4 h-4 text-[#f3ce6b]" />
               <span>📖 Rules</span>
             </button>
 
             <button
+              onClick={() => setIsMasterHubOpen(true)}
+              className="py-2.5 px-3 rounded-2xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 text-emerald-200 font-extrabold text-xs border border-emerald-400/40 shadow-lg transition active:scale-95 flex items-center justify-center gap-1.5"
+            >
+              <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
+              <span>96 FX Hub</span>
+            </button>
+
+            <button
               onClick={() => setIsAnimationLibraryOpen(true)}
-              className="flex-1 py-2.5 px-3 rounded-2xl bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 hover:from-cyan-500/30 hover:to-indigo-500/30 text-cyan-200 font-extrabold text-xs border border-cyan-400/40 shadow-lg transition active:scale-95 flex items-center justify-center gap-1.5"
+              className="py-2.5 px-3 rounded-2xl bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 hover:from-cyan-500/30 hover:to-indigo-500/30 text-cyan-200 font-extrabold text-xs border border-cyan-400/40 shadow-lg transition active:scale-95 flex items-center justify-center gap-1.5"
             >
               <Wand2 className="w-4 h-4 text-cyan-300" />
-              <span>✨ Animation Engine</span>
+              <span>✨ VFX Engine</span>
             </button>
           </div>
 
@@ -1637,6 +1695,7 @@ export default function App() {
         isOpen={isAnimationLibraryOpen}
         onClose={() => setIsAnimationLibraryOpen(false)}
         onOpenCinematicVfx={() => setIsCinematicVfxOpen(true)}
+        onOpenMasterHub={() => setIsMasterHubOpen(true)}
       />
 
       {/* Cinematic Chess Animation & Particle FX Engine */}
@@ -1644,6 +1703,57 @@ export default function App() {
         isOpen={isCinematicVfxOpen}
         onClose={() => setIsCinematicVfxOpen(false)}
       />
+
+      {/* 96-Item Master Customization Hub (Shop, Inventory & Sandbox) Modal */}
+      <AnimationEffectsMasterHubModal
+        isOpen={isMasterHubOpen}
+        onClose={() => setIsMasterHubOpen(false)}
+        onOpenCinematicShowcase={() => {
+          setIsMasterHubOpen(false);
+          setIsCinematicVfxOpen(true);
+        }}
+        onOpenDailyWheel={() => {
+          setIsMasterHubOpen(false);
+          setIsDailyWheelOpen(true);
+        }}
+        onOpenQuests={() => {
+          setIsMasterHubOpen(false);
+          setIsQuestsOpen(true);
+        }}
+      />
+
+      {/* Daily Wheel of Rewards (24h Cooldown Spin) Modal */}
+      <DailyWheelModal
+        isOpen={isDailyWheelOpen}
+        onClose={() => setIsDailyWheelOpen(false)}
+      />
+
+      {/* Simultaneous Hatrick Achievement Banner Toast */}
+      {hatrickNotification && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[160] animate-bounce max-w-md w-full px-4">
+          <div className="bg-gradient-to-r from-amber-500 via-yellow-500 to-orange-500 text-slate-950 p-4 rounded-3xl shadow-[0_0_40px_rgba(245,158,11,0.6)] border-2 border-white flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-white/20 border border-white/40 flex items-center justify-center text-2xl shrink-0">
+                🔥
+              </div>
+              <div>
+                <h4 className="font-black text-sm uppercase tracking-wide">
+                  Hatrick Complete! 3 Consecutive Captures!
+                </h4>
+                <p className="text-xs font-bold text-slate-900/90">
+                  +{hatrickNotification.reward.toLocaleString()} PTS added to your wallet!
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setHatrickNotification(null)}
+              className="p-1 rounded-lg bg-black/10 hover:bg-black/20 text-slate-950"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Privacy Policy, Terms & Conditions & App Flow Modal */}
       <PrivacyTermsModal

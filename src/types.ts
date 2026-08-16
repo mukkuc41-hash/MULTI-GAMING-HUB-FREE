@@ -1,4 +1,4 @@
-export type BoardTheme = 'terracotta' | 'wood' | 'emerald' | 'slate' | 'stone' | 'neon' | 'ocean' | 'crimson' | 'glass';
+export type BoardTheme = 'terracotta' | 'wood' | 'emerald' | 'slate' | 'stone' | 'neon' | 'ocean' | 'crimson' | 'glass' | 'cyber';
 
 export type PieceTheme = 'classic' | 'modern' | 'alpha';
 
