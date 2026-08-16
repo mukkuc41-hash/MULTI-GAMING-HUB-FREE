@@ -31,6 +31,12 @@ import {
   VARIATIONS_96_MATRIX,
   PieceElementCode,
 } from '../utils/cinematicVfx';
+import {
+  getEquippedItemForPiece,
+  getEquippedMasterEffects,
+  getMasterInventory,
+  CatalogItem,
+} from '../utils/masterEffectsCatalog';
 
 interface ChessBoardProps {
   chess: Chess;
@@ -225,8 +231,9 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 
   // Cinematic VFX Settings (Active by Default)
   const [vfxSettings, setVfxSettings] = useState<VfxSettings>(() => loadVfxSettings());
+  const [equippedRevision, setEquippedRevision] = useState<number>(0);
 
-  // Listen for VFX settings updates (e.g. from Showcase modal or settings)
+  // Listen for VFX settings updates and equipped loadout updates
   useEffect(() => {
     const handleVfxUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<VfxSettings>;
@@ -234,8 +241,19 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
         setVfxSettings(customEvent.detail);
       }
     };
+    const handleEquippedUpdate = () => {
+      setEquippedRevision((prev) => prev + 1);
+    };
+
     window.addEventListener('chess_vfx_settings_updated', handleVfxUpdate);
-    return () => window.removeEventListener('chess_vfx_settings_updated', handleVfxUpdate);
+    window.addEventListener('chess_equipped_effects_updated', handleEquippedUpdate);
+    window.addEventListener('storage', handleEquippedUpdate);
+
+    return () => {
+      window.removeEventListener('chess_vfx_settings_updated', handleVfxUpdate);
+      window.removeEventListener('chess_equipped_effects_updated', handleEquippedUpdate);
+      window.removeEventListener('storage', handleEquippedUpdate);
+    };
   }, []);
 
   const boardRef = useRef<HTMLDivElement>(null);
@@ -362,8 +380,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 
   // Spark Particles Emitter
   const triggerParticleBurst = useCallback(
-    (centerX: number, centerY: number, colorScheme: string[], count = vfxSettings.particleDensity) => {
-      if (!vfxSettings.enabled) return;
+    (centerX: number, centerY: number, colorScheme: string[], count = 32) => {
       const shapes: ('circle' | 'star' | 'diamond')[] = ['circle', 'star', 'diamond'];
       const newParticles: VfxParticle[] = [];
 
@@ -387,7 +404,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
 
       particlesRef.current = [...particlesRef.current, ...newParticles];
     },
-    [vfxSettings]
+    [vfxSettings.animSpeed]
   );
 
   // Main Canvas Render Loop for Particles
@@ -492,19 +509,34 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     if (!isNewMove) return;
     prevLastMoveRef.current = lastMove;
 
-    if (!vfxSettings.enabled) return;
-
+    // Identify pieces and game state
     const coords = getSquareCoords(lastMove.to);
     const pieceOnTo = chess.get(lastMove.to);
     const pType = pieceOnTo?.type || 'p';
     const isCheck = !!kingInCheckSquare || chess.inCheck();
     const isCheckmate = chess.isGameOver() && isCheck;
     const isCapture = !!chess.history({ verbose: true }).slice(-1)[0]?.captured;
+    const historyVerbose = chess.history({ verbose: true });
+    const lastVerbose = historyVerbose[historyVerbose.length - 1];
+    const capturedType = (lastVerbose?.captured || 'p') as 'p' | 'n' | 'b' | 'r' | 'q' | 'k';
 
-    const themeColors = getThemeColors(vfxSettings.vfxTheme);
+    // Check ONLY purchased and equipped effects/animations for the moving and captured pieces
+    const movingPieceEquipped = getEquippedItemForPiece(pType);
+    const capturedPieceEquipped = isCapture ? getEquippedItemForPiece(capturedType) : null;
 
-    // 1. Play Synthesized Sound
-    if (vfxSettings.soundEnabled) {
+    // IF NEITHER PIECE HAS A PURCHASED & EQUIPPED ITEM:
+    if (!movingPieceEquipped && !capturedPieceEquipped) {
+      if (soundEnabled) {
+        if (isCheckmate) playCinematicSound('checkmate');
+        else if (isCheck) playCinematicSound('check');
+        else if (isCapture) playCinematicSound('capture');
+        else playCinematicSound('move');
+      }
+      return;
+    }
+
+    // 1. Play Synthesized Sound for equipped pieces
+    if (soundEnabled) {
       if (isCheckmate) {
         playCinematicSound('checkmate');
       } else if (isCheck) {
@@ -520,27 +552,24 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       }
     }
 
-    // Determine 96-State Variation Style Index (1-4)
-    const activeStyle: 1 | 2 | 3 | 4 =
-      vfxSettings.animStyleMode === 'dynamic' || !vfxSettings.animStyleMode
-        ? (((chess.history().length % 4) + 1) as 1 | 2 | 3 | 4)
-        : (vfxSettings.animStyleMode as 1 | 2 | 3 | 4);
+    // Determine 96-State Variation Style Index from equipped item
+    const activeStyle: 1 | 2 | 3 | 4 = (movingPieceEquipped?.variantIndex || capturedPieceEquipped?.variantIndex || 1) as 1 | 2 | 3 | 4;
 
-    // Trigger Occupying Arrival Animation
-    setOccupyingSquare({
-      square: lastMove.to,
-      styleIndex: activeStyle,
-    });
-    setTimeout(() => {
-      setOccupyingSquare((curr) => (curr?.square === lastMove.to ? null : curr));
-    }, 600);
+    // Trigger Occupying Arrival Animation ONLY if moving piece has an equipped effect/animation
+    if (movingPieceEquipped) {
+      setOccupyingSquare({
+        square: lastMove.to,
+        styleIndex: activeStyle,
+      });
+      setTimeout(() => {
+        setOccupyingSquare((curr) => (curr?.square === lastMove.to ? null : curr));
+      }, 600);
+    }
 
-    // If a capture occurred, spawn the Capture Ghost with corresponding piece type & style
-    if (isCapture) {
-      const historyVerbose = chess.history({ verbose: true });
-      const lastVerbose = historyVerbose[historyVerbose.length - 1];
-      const capturedType = (lastVerbose?.captured || 'p') as 'p' | 'n' | 'b' | 'r' | 'q' | 'k';
+    // Trigger Capture Ghost ONLY if captured piece (or capturing piece) has an equipped effect/animation
+    if (isCapture && (capturedPieceEquipped || movingPieceEquipped)) {
       const capturedColor = pieceOnTo?.color === 'w' ? 'b' : 'w';
+      const ghostStyle = (capturedPieceEquipped?.variantIndex || activeStyle) as 1 | 2 | 3 | 4;
 
       const ghostId = Date.now() + Math.random();
       setCaptureGhosts((prev) => [
@@ -550,7 +579,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
           square: lastMove.to,
           pieceType: capturedType,
           pieceColor: capturedColor,
-          styleIndex: activeStyle,
+          styleIndex: ghostStyle,
         },
       ]);
 
@@ -559,23 +588,25 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       }, 700);
     }
 
-    // 2. Trigger Particles
-    let particleColors = themeColors;
-    if (isCheckmate) particleColors = ['#ffd700', '#fbbf24', '#ffffff', '#eab308'];
-    else if (isCapture) particleColors = ['#ef4444', '#f97316', '#ffedd5', '#f87171'];
-    else if (isCheck) particleColors = ['#f59e0b', '#fbbf24', '#fef08a', '#ffffff'];
+    // 2. Trigger Particles using equipped item's glowColor & secondaryColor
+    const activeGlow = movingPieceEquipped?.glowColor || capturedPieceEquipped?.glowColor || '#00f2fe';
+    const activeSec = movingPieceEquipped?.secondaryColor || capturedPieceEquipped?.secondaryColor || '#3b82f6';
+    let particleColors = [activeGlow, activeSec, '#ffffff'];
+    if (isCheckmate) particleColors = ['#ffd700', activeGlow, '#ffffff', '#eab308'];
+    else if (isCapture) particleColors = [activeGlow, '#ef4444', activeSec, '#ffffff'];
+    else if (isCheck) particleColors = [activeGlow, '#f59e0b', '#fbbf24', '#ffffff'];
 
     triggerParticleBurst(coords.x, coords.y, particleColors, isCheckmate ? 50 : isCapture ? 36 : 24);
 
-    // 3. Trigger Shockwave Ring
+    // 3. Trigger Shockwave Ring with equipped item's glow color
     const shockwaveId = Date.now() + Math.random();
     const shockColor = isCheckmate
       ? 'rgba(250, 204, 21, 0.9)'
       : isCapture
-      ? 'rgba(239, 68, 68, 0.85)'
+      ? `${activeGlow}e6`
       : isCheck
       ? 'rgba(245, 158, 11, 0.9)'
-      : 'rgba(0, 242, 254, 0.85)';
+      : `${activeGlow}cc`;
 
     setShockwaves((prev) => [
       ...prev,
@@ -584,7 +615,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
         x: coords.x,
         y: coords.y,
         color: shockColor,
-        glowColor: shockColor,
+        glowColor: activeGlow,
         size: coords.size,
       },
     ]);
@@ -593,14 +624,14 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
       setShockwaves((prev) => prev.filter((s) => s.id !== shockwaveId));
     }, 850);
 
-    // 4. Trigger Board Jolt Shake
+    // 4. Trigger Board Jolt Shake if screenShake is enabled in settings
     if (vfxSettings.screenShake && (isCapture || isCheck || isCheckmate)) {
       setIsBoardShaking(true);
       setTimeout(() => setIsBoardShaking(false), 420);
     }
 
-    // 5. Trigger Floating Evaluation Badge
-    if (vfxSettings.floatingBadges) {
+    // 5. Trigger Floating Evaluation Badge for equipped piece moves
+    if (vfxSettings.floatingBadges || movingPieceEquipped) {
       let badgeText = '';
       let badgeColor = 'text-cyan-300';
       let badgeBg = 'bg-cyan-950/80';
@@ -621,16 +652,11 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
         badgeColor = 'text-rose-300';
         badgeBg = 'bg-rose-950/80';
         badgeBorder = 'border-rose-400/60';
-      } else if (pType === 'n') {
-        badgeText = '♞ LEAP';
+      } else if (movingPieceEquipped) {
+        badgeText = `${movingPieceEquipped.piece.toUpperCase()} #${movingPieceEquipped.variantIndex}`;
         badgeColor = 'text-sky-300';
-        badgeBg = 'bg-sky-950/80';
-        badgeBorder = 'border-sky-400/60';
-      } else if (pType === 'q') {
-        badgeText = '♛ GLIDE';
-        badgeColor = 'text-purple-300';
-        badgeBg = 'bg-purple-950/80';
-        badgeBorder = 'border-purple-400/60';
+        badgeBg = 'bg-slate-950/85';
+        badgeBorder = 'border-cyan-400/60';
       }
 
       if (badgeText) {
@@ -1343,33 +1369,45 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                     </span>
                   )}
 
-                  {/* Chess Piece Vector Render with Spring Animations & 96-State Occupying Classes */}
-                  {piece && (
-                    <motion.div
-                      layoutId={pieceIds[square] || `${piece.color}_${piece.type}_${square}`}
-                      data-piece={piece.type.toUpperCase()}
-                      transition={{
-                        type: 'spring',
-                        stiffness: 420,
-                        damping: 26,
-                        mass: 0.7,
-                      }}
-                      draggable={!readOnly && piece.color === chess.turn()}
-                      onDragStart={(e) => handleDragStart(e as unknown as React.DragEvent<HTMLDivElement>, square)}
-                      className={`relative w-full h-full z-20 p-0.5 sm:p-1 flex items-center justify-center cursor-grab active:cursor-grabbing transition-transform ${
-                        occupyingSquare?.square === square
-                          ? `piece-occupying style-${occupyingSquare.styleIndex}`
-                          : ''
-                      } ${
-                        isSelected ? 'scale-110 -translate-y-1 drop-shadow-2xl' : 'hover:scale-105'
-                      }`}
-                    >
-                      <ChessPiece
-                        type={piece.type as 'p' | 'n' | 'b' | 'r' | 'q' | 'k'}
-                        color={piece.color as 'w' | 'b'}
-                      />
-                    </motion.div>
-                  )}
+                  {/* Chess Piece Vector Render with Spring Animations & 96-State Occupying Classes (Only for Equipped Items) */}
+                  {piece && (() => {
+                    const equippedItem = getEquippedItemForPiece(piece.type);
+                    return (
+                      <motion.div
+                        layoutId={pieceIds[square] || `${piece.color}_${piece.type}_${square}`}
+                        data-piece={piece.type.toUpperCase()}
+                        transition={{
+                          type: 'spring',
+                          stiffness: 420,
+                          damping: 26,
+                          mass: 0.7,
+                        }}
+                        draggable={!readOnly && piece.color === chess.turn()}
+                        onDragStart={(e) => handleDragStart(e as unknown as React.DragEvent<HTMLDivElement>, square)}
+                        style={
+                          equippedItem
+                            ? {
+                                filter: isSelected
+                                  ? `drop-shadow(0 0 12px ${equippedItem.glowColor})`
+                                  : `drop-shadow(0 0 5px ${equippedItem.glowColor}80)`,
+                              }
+                            : undefined
+                        }
+                        className={`relative w-full h-full z-20 p-0.5 sm:p-1 flex items-center justify-center cursor-grab active:cursor-grabbing transition-transform ${
+                          occupyingSquare?.square === square && equippedItem
+                            ? `piece-occupying style-${occupyingSquare.styleIndex}`
+                            : ''
+                        } ${
+                          isSelected ? 'scale-110 -translate-y-1 drop-shadow-2xl' : 'hover:scale-105'
+                        }`}
+                      >
+                        <ChessPiece
+                          type={piece.type as 'p' | 'n' | 'b' | 'r' | 'q' | 'k'}
+                          color={piece.color as 'w' | 'b'}
+                        />
+                      </motion.div>
+                    );
+                  })()}
 
                   {/* 96-State Captured Piece Dissolution / Shatter / Warp Ghosts */}
                   {captureGhosts

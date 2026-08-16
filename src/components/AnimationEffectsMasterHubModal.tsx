@@ -36,6 +36,15 @@ import {
   getActiveRandomQuests,
   checkDailyWheelStatus,
 } from '../utils/pointsManager';
+import {
+  MASTER_96_CATALOG,
+  PIECES,
+  CATEGORIES,
+  CatalogItem,
+  MasterPieceType,
+  MasterCategoryType,
+  notifyEquippedEffectsUpdated,
+} from '../utils/masterEffectsCatalog';
 
 interface AnimationEffectsMasterHubModalProps {
   isOpen: boolean;
@@ -44,125 +53,6 @@ interface AnimationEffectsMasterHubModalProps {
   onOpenDailyWheel?: () => void;
   onOpenQuests?: () => void;
 }
-
-export type MasterPieceType = 'Pawn' | 'Knight' | 'Bishop' | 'Rook' | 'Queen' | 'King';
-export type MasterCategoryType =
-  | 'Capture Animation'
-  | 'Occupying Animation'
-  | 'Capture Effect'
-  | 'Occupying Effect';
-
-export interface CatalogItem {
-  id: string;
-  piece: MasterPieceType;
-  pieceCode: 'P' | 'N' | 'B' | 'R' | 'Q' | 'K';
-  category: MasterCategoryType;
-  variantIndex: number;
-  name: string;
-  desc: string;
-  glowColor: string;
-  secondaryColor: string;
-  badgeType: 'red' | 'blue' | 'gold' | 'purple' | 'green' | 'cyan';
-  animClass: string;
-  price: number;
-}
-
-const PIECES: { name: MasterPieceType; code: 'P' | 'N' | 'B' | 'R' | 'Q' | 'K'; symbol: string }[] = [
-  { name: 'Pawn', code: 'P', symbol: '♟' },
-  { name: 'Knight', code: 'N', symbol: '♞' },
-  { name: 'Bishop', code: 'B', symbol: '♝' },
-  { name: 'Rook', code: 'R', symbol: '♜' },
-  { name: 'Queen', code: 'Q', symbol: '♛' },
-  { name: 'King', code: 'K', symbol: '♚' },
-];
-
-const CATEGORIES: { cat: MasterCategoryType; prefix: string; type: 'anim' | 'fx' }[] = [
-  { cat: 'Capture Animation', prefix: 'cap-anim', type: 'anim' },
-  { cat: 'Occupying Animation', prefix: 'occ-anim', type: 'anim' },
-  { cat: 'Capture Effect', prefix: 'cap-fx', type: 'fx' },
-  { cat: 'Occupying Effect', prefix: 'occ-fx', type: 'fx' },
-];
-
-// Aesthetic dynamic theme colors tailored for holographic VFX cards
-const COLOR_MAPPING: Record<string, { primary: string; secondary: string; badge: 'red' | 'blue' | 'gold' | 'purple' | 'green' | 'cyan' }> = {
-  'Pawn-1': { primary: '#ef4444', secondary: '#f97316', badge: 'red' },
-  'Pawn-2': { primary: '#06b6d4', secondary: '#3b82f6', badge: 'cyan' },
-  'Pawn-3': { primary: '#eab308', secondary: '#f59e0b', badge: 'gold' },
-  'Pawn-4': { primary: '#10b981', secondary: '#059669', badge: 'green' },
-
-  'Knight-1': { primary: '#f59e0b', secondary: '#d97706', badge: 'gold' },
-  'Knight-2': { primary: '#00d2ff', secondary: '#3b82f6', badge: 'blue' },
-  'Knight-3': { primary: '#a855f7', secondary: '#9333ea', badge: 'purple' },
-  'Knight-4': { primary: '#ec4899', secondary: '#f43f5e', badge: 'red' },
-
-  'Bishop-1': { primary: '#a855f7', secondary: '#6366f1', badge: 'purple' },
-  'Bishop-2': { primary: '#06b6d4', secondary: '#0284c7', badge: 'cyan' },
-  'Bishop-3': { primary: '#f1c40f', secondary: '#e67e22', badge: 'gold' },
-  'Bishop-4': { primary: '#10b981', secondary: '#14b8a6', badge: 'green' },
-
-  'Rook-1': { primary: '#3b82f6', secondary: '#1d4ed8', badge: 'blue' },
-  'Rook-2': { primary: '#ef4444', secondary: '#dc2626', badge: 'red' },
-  'Rook-3': { primary: '#f97316', secondary: '#ea580c', badge: 'gold' },
-  'Rook-4': { primary: '#c084fc', secondary: '#9333ea', badge: 'purple' },
-
-  'Queen-1': { primary: '#f43f5e', secondary: '#e11d48', badge: 'red' },
-  'Queen-2': { primary: '#38bdf8', secondary: '#0284c7', badge: 'cyan' },
-  'Queen-3': { primary: '#facc15', secondary: '#eab308', badge: 'gold' },
-  'Queen-4': { primary: '#d946ef', secondary: '#a21caf', badge: 'purple' },
-
-  'King-1': { primary: '#38bdf8', secondary: '#0369a1', badge: 'cyan' },
-  'King-2': { primary: '#00d2ff', secondary: '#2563eb', badge: 'blue' },
-  'King-3': { primary: '#fbbf24', secondary: '#d97706', badge: 'gold' },
-  'King-4': { primary: '#c084fc', secondary: '#7e22ce', badge: 'purple' },
-};
-
-// Generate the 96-item library matrix (6 pieces * 4 categories * 4 variants = 96 items)
-export const MASTER_96_CATALOG: CatalogItem[] = (() => {
-  const catalog: CatalogItem[] = [];
-  let counter = 1;
-
-  PIECES.forEach((p) => {
-    CATEGORIES.forEach((t) => {
-      for (let i = 1; i <= 4; i++) {
-        const key = `${p.name}-${i}`;
-        const theme = COLOR_MAPPING[key] || { primary: '#38bdf8', secondary: '#6366f1', badge: 'blue' };
-
-        let animClass = '';
-        if (t.cat === 'Capture Animation') {
-          animClass = ['anim-core-dissolve', 'anim-core-spin-out', 'anim-core-shatter', 'anim-core-portal-out'][i - 1];
-        } else if (t.cat === 'Occupying Animation') {
-          animClass = ['anim-core-emerge', 'anim-core-spin-in', 'anim-core-assemble', 'anim-core-portal-in'][i - 1];
-        } else {
-          animClass = `style-${i}`;
-        }
-
-        const descriptions = [
-          `Level 1 kinetic sequence featuring high-precision motion curves and soft perimeter resonance for ${p.name}.`,
-          `Level 2 high-torque vortex burst with chromatic prism filtration tailored for the ${p.name} element.`,
-          `Level 3 hyper-saturated kinetic strike with shattered particle impulse physics for ${p.name}.`,
-          `Level 4 sovereign stellar gate singularity with luminescent aura beam projection for ${p.name}.`,
-        ];
-
-        catalog.push({
-          id: `item-${counter++}`,
-          piece: p.name,
-          pieceCode: p.code,
-          category: t.cat,
-          variantIndex: i,
-          name: `${p.name} ${t.cat.includes('Capture') ? 'Capture' : 'Occupy'} #${i}`,
-          desc: descriptions[i - 1],
-          glowColor: theme.primary,
-          secondaryColor: theme.secondary,
-          badgeType: theme.badge,
-          animClass: animClass,
-          price: 1000,
-        });
-      }
-    });
-  });
-
-  return catalog;
-})();
 
 // Glowing piece visual artwork component
 function GlowingPieceArt({
@@ -340,10 +230,12 @@ export function AnimationEffectsMasterHubModal({
 
   useEffect(() => {
     localStorage.setItem('chess_master_hub_inventory', JSON.stringify(inventory));
+    notifyEquippedEffectsUpdated();
   }, [inventory]);
 
   useEffect(() => {
     localStorage.setItem('chess_master_hub_equipped', JSON.stringify(equipped));
+    notifyEquippedEffectsUpdated();
   }, [equipped]);
 
   // Reset page on filter changes
