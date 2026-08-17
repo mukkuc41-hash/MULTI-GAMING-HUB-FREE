@@ -6,7 +6,8 @@ export type MasterCategoryType =
   | 'Capture Animation'
   | 'Occupying Animation'
   | 'Capture Effect'
-  | 'Occupying Effect';
+  | 'Occupying Effect'
+  | 'Cry State';
 
 export interface CatalogItem {
   id: string;
@@ -21,6 +22,7 @@ export interface CatalogItem {
   badgeType: 'red' | 'blue' | 'gold' | 'purple' | 'green' | 'cyan';
   animClass: string;
   price: number;
+  isCryState?: boolean;
 }
 
 export const PIECES: { name: MasterPieceType; code: 'P' | 'N' | 'B' | 'R' | 'Q' | 'K'; symbol: string }[] = [
@@ -32,12 +34,81 @@ export const PIECES: { name: MasterPieceType; code: 'P' | 'N' | 'B' | 'R' | 'Q' 
   { name: 'King', code: 'K', symbol: '♚' },
 ];
 
-export const CATEGORIES: { cat: MasterCategoryType; prefix: string; type: 'anim' | 'fx' }[] = [
+export const CATEGORIES: { cat: MasterCategoryType; prefix: string; type: 'anim' | 'fx' | 'cry' }[] = [
   { cat: 'Capture Animation', prefix: 'cap-anim', type: 'anim' },
   { cat: 'Occupying Animation', prefix: 'occ-anim', type: 'anim' },
   { cat: 'Capture Effect', prefix: 'cap-fx', type: 'fx' },
   { cat: 'Occupying Effect', prefix: 'occ-fx', type: 'fx' },
+  { cat: 'Cry State', prefix: 'cry-state', type: 'cry' },
 ];
+
+const DETAILED_PIECE_DATA: Record<
+  MasterPieceType,
+  {
+    capNames: [string, string, string, string];
+    occNames: [string, string, string, string];
+    fxCapNames: [string, string, string, string];
+    fxOccNames: [string, string, string, string];
+    cryName: string;
+    cryDesc: string;
+    cryColor: string;
+  }
+> = {
+  Pawn: {
+    capNames: ['Pawn Dissolve Collapse', 'Pawn Spiral Sink', 'Pawn Dust Shatter', 'Pawn Fade Vacuum'],
+    occNames: ['Pawn Rise Materialization', 'Pawn Pop Bounce', 'Pawn Slide Glide', 'Pawn Spin Lock'],
+    fxCapNames: ['Pawn Amber Spark', 'Pawn Emerald Haze', 'Pawn Ruby Glint', 'Pawn Cobalt Edge'],
+    fxOccNames: ['Pawn Silver Beacon', 'Pawn Solar Sparkle', 'Pawn Radiant Flare', 'Pawn Prism Ring'],
+    cryName: 'Pawn Despair Wail',
+    cryDesc: 'Pawn dips downward with high-frequency micro-jitter and weeping amber soundwave rings (+2,500 PTS).',
+    cryColor: '#d35400',
+  },
+  Knight: {
+    capNames: ['Knight L-Vault Vanish', 'Knight Spin Vortex', 'Knight Impact Crater', 'Knight Portal Snap'],
+    occNames: ['Knight Vault Entry', 'Knight Orbital Sweep', 'Knight Kinetic Charge', 'Knight Stride Lock'],
+    fxCapNames: ['Knight Electric Arc', 'Knight Bronze Shield', 'Knight Neon Cyan Pulse', 'Knight Crimson Surge'],
+    fxOccNames: ['Knight Storm Aura', 'Knight Gallop Surge', 'Knight Blue Plasma', 'Knight Golden Hoof'],
+    cryName: 'Knight War Cry',
+    cryDesc: 'Knight stallion rears backward with aggressive hoof stamping and crackling electric blue voltage (+2,500 PTS).',
+    cryColor: '#00d2ff',
+  },
+  Bishop: {
+    capNames: ['Bishop Diagonal Slicing', 'Bishop Prism Refraction', 'Bishop Diagonal Sweep', 'Bishop Mystic Implosion'],
+    occNames: ['Bishop Diagonal Glide', 'Bishop Divine Beam Drop', 'Bishop Tilt Materialize', 'Bishop Aura Expand'],
+    fxCapNames: ['Bishop Holy Gold Aura', 'Bishop Mystic Purple Mist', 'Bishop Celestial White Flare', 'Bishop Emerald Ray'],
+    fxOccNames: ['Bishop Sanctuary Glow', 'Bishop Celestial Beam', 'Bishop Astral Veil', 'Bishop Golden Cross'],
+    cryName: 'Bishop Chant Echo',
+    cryDesc: 'Bishop tilts in sacred pendulum cadence while expanding radiant golden-violet cross fields (+2,500 PTS).',
+    cryColor: '#8b5cf6',
+  },
+  Rook: {
+    capNames: ['Rook Fortress Demolition', 'Rook Laser Grid Erasure', 'Rook Heavy Impact Smash', 'Rook Structural Collapse'],
+    occNames: ['Rook Orthogonal Slide', 'Rook Fortress Rise', 'Rook Solid Anchor Drop', 'Rook Modular Assembly'],
+    fxCapNames: ['Rook Steel Armor', 'Rook Magma Core', 'Rook Titanium Chrome', 'Rook Obsidian Dark'],
+    fxOccNames: ['Rook Citadel Bastion', 'Rook Seismic Tremor', 'Rook Molten Foundry', 'Rook Aegis Ward'],
+    cryName: 'Rook Siege Siren',
+    cryDesc: 'Rook battlements expand with deep resonant sub-bass horn blasts over boiling magma shockwaves (+2,500 PTS).',
+    cryColor: '#ef4444',
+  },
+  Queen: {
+    capNames: ['Queen Imperial Disintegration', 'Queen Royal Vortex', 'Queen Singularity Warp', 'Queen Royal Shockwave'],
+    occNames: ['Queen Majestic Descent', 'Queen Sovereign Expansion', 'Queen Omnidirectional Glide', 'Queen Crown Emergence'],
+    fxCapNames: ['Queen Sovereign Gold', 'Queen Imperial Amethyst', 'Queen Diamond Prism', 'Queen Solar Flare'],
+    fxOccNames: ['Queen Supernova Ray', 'Queen Celestial Tiara', 'Queen Prismatic Radiance', 'Queen Royal Corona'],
+    cryName: 'Queen Sovereign Command',
+    cryDesc: 'Queen levitates vertically discharging triple-tier shockwave ripple rings and brilliant solar corona (+2,500 PTS).',
+    cryColor: '#ffd700',
+  },
+  King: {
+    capNames: ['King Throne Collapse', 'King Imperial Shatter', 'King Golden Fadeout', 'King Realm Seal'],
+    occNames: ['King Royal Portal Arrival', 'King Throne Summon', 'King Sovereign Step', 'King Divine Coronation'],
+    fxCapNames: ['King Imperial Gold Crown', 'King Platinum Sovereign', 'King Mystic Ruby Sovereign', 'King Eternal Realm'],
+    fxOccNames: ['King Monarch Scepter', 'King Sovereign Aegis', 'King Golden Standard', 'King Imperial Diadem'],
+    cryName: 'King Imperial Decree',
+    cryDesc: 'King thrusts royal crown upward unleashing magnificent platinum-gold sovereign shield dominance (+2,500 PTS).',
+    cryColor: '#fbbf24',
+  },
+};
 
 const COLOR_MAPPING: Record<string, { primary: string; secondary: string; badge: 'red' | 'blue' | 'gold' | 'purple' | 'green' | 'cyan' }> = {
   'Pawn-1': { primary: '#ef4444', secondary: '#f97316', badge: 'red' },
@@ -71,48 +142,107 @@ const COLOR_MAPPING: Record<string, { primary: string; secondary: string; badge:
   'King-4': { primary: '#c084fc', secondary: '#7e22ce', badge: 'purple' },
 };
 
-// Master 96 Catalog
+// Master Catalog: 96 Matrix Variations + 6 Exclusive Cry States
 export const MASTER_96_CATALOG: CatalogItem[] = (() => {
   const catalog: CatalogItem[] = [];
   let counter = 1;
 
   PIECES.forEach((p) => {
-    CATEGORIES.forEach((t) => {
-      for (let i = 1; i <= 4; i++) {
-        const key = `${p.name}-${i}`;
-        const theme = COLOR_MAPPING[key] || { primary: '#38bdf8', secondary: '#6366f1', badge: 'blue' };
+    const data = DETAILED_PIECE_DATA[p.name];
 
-        let animClass = '';
-        if (t.cat === 'Capture Animation') {
-          animClass = ['anim-core-dissolve', 'anim-core-spin-out', 'anim-core-shatter', 'anim-core-portal-out'][i - 1];
-        } else if (t.cat === 'Occupying Animation') {
-          animClass = ['anim-core-emerge', 'anim-core-spin-in', 'anim-core-assemble', 'anim-core-portal-in'][i - 1];
-        } else {
-          animClass = `style-${i}`;
-        }
+    // 1. Capture Animations (4)
+    for (let i = 1; i <= 4; i++) {
+      const theme = COLOR_MAPPING[`${p.name}-${i}`] || { primary: '#38bdf8', secondary: '#6366f1', badge: 'blue' };
+      const animClass = ['anim-core-dissolve', 'anim-core-spin-out', 'anim-core-shatter', 'anim-core-portal-out'][i - 1];
+      catalog.push({
+        id: `item-${counter++}`,
+        piece: p.name,
+        pieceCode: p.code,
+        category: 'Capture Animation',
+        variantIndex: i,
+        name: data.capNames[i - 1],
+        desc: `Level ${i} dynamic capture animation engineered specifically for the ${p.name} element.`,
+        glowColor: theme.primary,
+        secondaryColor: theme.secondary,
+        badgeType: theme.badge,
+        animClass: animClass,
+        price: 1000,
+      });
+    }
 
-        const descriptions = [
-          `Level 1 kinetic sequence featuring high-precision motion curves and soft perimeter resonance for ${p.name}.`,
-          `Level 2 high-torque vortex burst with chromatic prism filtration tailored for the ${p.name} element.`,
-          `Level 3 hyper-saturated kinetic strike with shattered particle impulse physics for ${p.name}.`,
-          `Level 4 sovereign stellar gate singularity with luminescent aura beam projection for ${p.name}.`,
-        ];
+    // 2. Occupying Animations (4)
+    for (let i = 1; i <= 4; i++) {
+      const theme = COLOR_MAPPING[`${p.name}-${i}`] || { primary: '#38bdf8', secondary: '#6366f1', badge: 'blue' };
+      const animClass = ['anim-core-emerge', 'anim-core-spin-in', 'anim-core-assemble', 'anim-core-portal-in'][i - 1];
+      catalog.push({
+        id: `item-${counter++}`,
+        piece: p.name,
+        pieceCode: p.code,
+        category: 'Occupying Animation',
+        variantIndex: i,
+        name: data.occNames[i - 1],
+        desc: `Level ${i} arrival sequence with spatial calibration for the ${p.name} square touchdown.`,
+        glowColor: theme.primary,
+        secondaryColor: theme.secondary,
+        badgeType: theme.badge,
+        animClass: animClass,
+        price: 1000,
+      });
+    }
 
-        catalog.push({
-          id: `item-${counter++}`,
-          piece: p.name,
-          pieceCode: p.code,
-          category: t.cat,
-          variantIndex: i,
-          name: `${p.name} ${t.cat.includes('Capture') ? 'Capture' : 'Occupy'} #${i}`,
-          desc: descriptions[i - 1],
-          glowColor: theme.primary,
-          secondaryColor: theme.secondary,
-          badgeType: theme.badge,
-          animClass: animClass,
-          price: 1000,
-        });
-      }
+    // 3. Capture Effects (4)
+    for (let i = 1; i <= 4; i++) {
+      const theme = COLOR_MAPPING[`${p.name}-${i}`] || { primary: '#38bdf8', secondary: '#6366f1', badge: 'blue' };
+      catalog.push({
+        id: `item-${counter++}`,
+        piece: p.name,
+        pieceCode: p.code,
+        category: 'Capture Effect',
+        variantIndex: i,
+        name: data.fxCapNames[i - 1],
+        desc: `Level ${i} visual filter modifier and luminous perimeter resonance for ${p.name} strikes.`,
+        glowColor: theme.primary,
+        secondaryColor: theme.secondary,
+        badgeType: theme.badge,
+        animClass: `style-${i}`,
+        price: 1000,
+      });
+    }
+
+    // 4. Occupying Effects (4)
+    for (let i = 1; i <= 4; i++) {
+      const theme = COLOR_MAPPING[`${p.name}-${i}`] || { primary: '#38bdf8', secondary: '#6366f1', badge: 'blue' };
+      catalog.push({
+        id: `item-${counter++}`,
+        piece: p.name,
+        pieceCode: p.code,
+        category: 'Occupying Effect',
+        variantIndex: i,
+        name: data.fxOccNames[i - 1],
+        desc: `Level ${i} optical landing halo and kinetic aura displacement for ${p.name}.`,
+        glowColor: theme.primary,
+        secondaryColor: theme.secondary,
+        badgeType: theme.badge,
+        animClass: `style-${i}`,
+        price: 1000,
+      });
+    }
+
+    // 5. Exclusive Cry State (Style 9 - 2,500 PTS)
+    catalog.push({
+      id: `item-cry-${p.code}`,
+      piece: p.name,
+      pieceCode: p.code,
+      category: 'Cry State',
+      variantIndex: 9,
+      name: data.cryName,
+      desc: data.cryDesc,
+      glowColor: data.cryColor,
+      secondaryColor: '#ffffff',
+      badgeType: 'gold',
+      animClass: 'piece-cry',
+      price: 2500,
+      isCryState: true,
     });
   });
 
@@ -182,4 +312,106 @@ export function notifyEquippedEffectsUpdated() {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('chess_equipped_effects_updated'));
   }
+}
+
+export function findCatalogItem(
+  pieceCode: 'P' | 'N' | 'B' | 'R' | 'Q' | 'K' | string,
+  action: 'capturing' | 'occupying' | 'cry',
+  styleIndex?: 1 | 2 | 3 | 4 | number
+): CatalogItem | undefined {
+  const pName = normalizePieceName(pieceCode);
+  if (action === 'cry') {
+    return MASTER_96_CATALOG.find((item) => item.piece === pName && item.category === 'Cry State');
+  }
+  const catName: MasterCategoryType = action === 'capturing' ? 'Capture Animation' : 'Occupying Animation';
+  return MASTER_96_CATALOG.find(
+    (item) => item.piece === pName && item.category === catName && item.variantIndex === (styleIndex || 1)
+  );
+}
+
+export function isVariationPurchased(
+  pieceCode: 'P' | 'N' | 'B' | 'R' | 'Q' | 'K' | string,
+  action: 'capturing' | 'occupying' | 'cry',
+  styleIndex?: 1 | 2 | 3 | 4 | number
+): boolean {
+  const item = findCatalogItem(pieceCode, action, styleIndex);
+  if (!item) return false;
+  const inv = getMasterInventory();
+  return Boolean(inv[item.id]);
+}
+
+export function purchaseCatalogItem(itemId: string): { success: boolean; message: string; item?: CatalogItem } {
+  const inv = getMasterInventory();
+  const item = MASTER_96_CATALOG.find((i) => i.id === itemId);
+  if (!item) {
+    return { success: false, message: 'Item not found in catalog.' };
+  }
+
+  if (inv[itemId]) {
+    return { success: true, message: `${item.name} is already owned in your inventory!`, item };
+  }
+
+  const price = item.price || 1000;
+  const currentPts = getUserPoints();
+  if (currentPts < price) {
+    return {
+      success: false,
+      message: `Insufficient points! You need ${price.toLocaleString()} PTS (Current balance: ${currentPts.toLocaleString()} PTS). Complete daily quests or spin the wheel to earn more!`,
+      item,
+    };
+  }
+
+  const spent = spendPoints(price, `Purchased ${item.name}`);
+  if (!spent) {
+    return { success: false, message: 'Points deduction failed.', item };
+  }
+
+  inv[itemId] = true;
+  try {
+    localStorage.setItem(STORAGE_INVENTORY_KEY, JSON.stringify(inv));
+  } catch (err) {
+    console.error('Failed to save inventory to storage', err);
+  }
+
+  // Automatically equip to that piece
+  equipCatalogItem(item.piece, item.id);
+
+  notifyEquippedEffectsUpdated();
+  playCinematicSound('brilliant');
+  return {
+    success: true,
+    message: `🎉 Successfully unlocked and equipped ${item.name} for ${price.toLocaleString()} PTS!`,
+    item,
+  };
+}
+
+export function equipCatalogItem(piece: MasterPieceType, itemId: string): boolean {
+  const inv = getMasterInventory();
+  if (!inv[itemId]) return false;
+
+  const equipped = getEquippedMasterEffects();
+  equipped[piece] = itemId;
+  try {
+    localStorage.setItem(STORAGE_EQUIPPED_KEY, JSON.stringify(equipped));
+  } catch (err) {
+    console.error('Failed to save equipped item', err);
+  }
+  notifyEquippedEffectsUpdated();
+  return true;
+}
+
+export function unequipCatalogItem(piece: MasterPieceType): void {
+  const equipped = getEquippedMasterEffects();
+  delete equipped[piece];
+  try {
+    localStorage.setItem(STORAGE_EQUIPPED_KEY, JSON.stringify(equipped));
+  } catch (err) {
+    console.error('Failed to update equipped item', err);
+  }
+  notifyEquippedEffectsUpdated();
+}
+
+export function getPurchasedItemsCount(): number {
+  const inv = getMasterInventory();
+  return Object.values(inv).filter(Boolean).length;
 }

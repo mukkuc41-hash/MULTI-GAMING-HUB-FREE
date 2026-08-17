@@ -427,7 +427,7 @@ export const GoogleConnectModal: React.FC<GoogleConnectModalProps> = ({
                   <div className="grid grid-cols-3 gap-3 pt-3 border-t border-blue-900/80 text-center">
                     <div className="bg-slate-950/80 p-2.5 rounded-2xl border border-slate-800">
                       <span className="text-slate-400 block text-[10px] uppercase">Play Games XP</span>
-                      <span className="text-blue-400 font-black text-sm">{playStats.totalXp.toLocaleString()} XP</span>
+                      <span className="text-blue-400 font-black text-sm">{(playStats?.totalXp ?? 0).toLocaleString()} XP</span>
                     </div>
 
                     <div className="bg-slate-950/80 p-2.5 rounded-2xl border border-slate-800">

@@ -27,7 +27,7 @@ import {
   Check,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { playCinematicSound } from '../utils/cinematicVfx';
+import { playCinematicSound, triggerPieceCryState, CRY_STATES_MATRIX } from '../utils/cinematicVfx';
 import { ChessPiece } from '../utils/chessPieces';
 import {
   getUserPoints,
@@ -35,6 +35,7 @@ import {
   getHatrickState,
   getActiveRandomQuests,
   checkDailyWheelStatus,
+  resetAllPurchasesAndPoints,
 } from '../utils/pointsManager';
 import {
   MASTER_96_CATALOG,
@@ -172,7 +173,7 @@ export function AnimationEffectsMasterHubModal({
   });
 
   // Active Main Navigation Tab
-  const [activeTab, setActiveTab] = useState<'shop' | 'inventory' | 'sandbox'>('shop');
+  const [activeTab, setActiveTab] = useState<'shop' | 'cry' | 'inventory' | 'sandbox'>('shop');
 
   // Filters & Sorting
   const [filterPiece, setFilterPiece] = useState<string>('ALL');
@@ -317,6 +318,15 @@ export function AnimationEffectsMasterHubModal({
     setActivityLog('🛡️ All animations and effects are unequipped! All loadouts are currently clean/empty.');
   };
 
+  const handleResetAllPurchases = () => {
+    resetAllPurchasesAndPoints(5000);
+    setInventory({});
+    setEquipped({});
+    setPoints(5000);
+    playCinematicSound('whoosh');
+    setActivityLog('🔄 Reset all purchases! Inventory is cleared and balance is reset to 5,000 PTS.');
+  };
+
   const triggerTestSandbox = () => {
     setIsSandboxTesting(true);
     setSandboxAnimKey((prev) => prev + 1);
@@ -453,10 +463,10 @@ export function AnimationEffectsMasterHubModal({
           </div>
 
           {/* 2. NAVIGATION TABS BAR */}
-          <div className="flex items-center gap-2 px-6 pt-3 pb-2 border-b border-[#17233f] bg-[#070c1b]">
+          <div className="flex flex-wrap items-center gap-2 px-6 pt-3 pb-2 border-b border-[#17233f] bg-[#070c1b]">
             <button
               onClick={() => setActiveTab('shop')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wide transition shadow-md ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wide transition shadow-md ${
                 activeTab === 'shop'
                   ? 'bg-gradient-to-r from-blue-700 to-indigo-600 text-white border border-blue-400/50 shadow-[0_0_20px_rgba(37,99,235,0.4)]'
                   : 'bg-[#0b1328] text-slate-400 hover:text-white border border-[#1b2a4d]'
@@ -467,8 +477,23 @@ export function AnimationEffectsMasterHubModal({
             </button>
 
             <button
+              onClick={() => setActiveTab('cry')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wide transition shadow-md ${
+                activeTab === 'cry'
+                  ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 border border-amber-300 shadow-[0_0_25px_rgba(245,158,11,0.5)]'
+                  : 'bg-[#131008] text-amber-300/90 hover:text-amber-200 border border-amber-500/30'
+              }`}
+            >
+              <span className="text-base leading-none">😭</span>
+              <span>CRY STATES (6 ELEMENTS • 2,500 PTS)</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black">
+                EXCLUSIVE
+              </span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('inventory')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wide transition shadow-md ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wide transition shadow-md ${
                 activeTab === 'inventory'
                   ? 'bg-gradient-to-r from-blue-700 to-indigo-600 text-white border border-blue-400/50 shadow-[0_0_20px_rgba(37,99,235,0.4)]'
                   : 'bg-[#0b1328] text-slate-400 hover:text-white border border-[#1b2a4d]'
@@ -480,7 +505,7 @@ export function AnimationEffectsMasterHubModal({
 
             <button
               onClick={() => setActiveTab('sandbox')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wide transition shadow-md ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wide transition shadow-md ${
                 activeTab === 'sandbox'
                   ? 'bg-gradient-to-r from-blue-700 to-indigo-600 text-white border border-blue-400/50 shadow-[0_0_20px_rgba(37,99,235,0.4)]'
                   : 'bg-[#0b1328] text-slate-400 hover:text-white border border-[#1b2a4d]'
@@ -489,6 +514,21 @@ export function AnimationEffectsMasterHubModal({
               <Play className="w-4 h-4" />
               <span>LIVE TEST SANDBOX</span>
             </button>
+
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (window.confirm('Reset all effect/animation purchases and reset wallet balance to 5,000 PTS?')) {
+                    handleResetAllPurchases();
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 hover:text-rose-200 border border-rose-500/30 transition shadow-sm"
+                title="Reset all purchases and restore 5,000 PTS starting balance"
+              >
+                <RotateCw className="w-3.5 h-3.5" />
+                <span>RESET ALL PURCHASES (5,000 PTS)</span>
+              </button>
+            </div>
           </div>
 
           {/* 3. MAIN DUAL-PANE BODY */}
@@ -523,11 +563,12 @@ export function AnimationEffectsMasterHubModal({
                         onChange={(e) => setFilterCategory(e.target.value)}
                         className="bg-[#0c142b] text-slate-200 text-xs font-bold px-3.5 py-2 rounded-xl border border-[#23355d] focus:outline-none focus:border-blue-400 cursor-pointer shadow-sm pr-8"
                       >
-                        <option value="ALL">All Types (Animations &amp; Effects)</option>
+                        <option value="ALL">All Types (Animations, Effects &amp; Cry)</option>
                         <option value="Capture Animation">Capture Animation</option>
                         <option value="Occupying Animation">Occupying Animation</option>
                         <option value="Capture Effect">Capture Effect</option>
                         <option value="Occupying Effect">Occupying Effect</option>
+                        <option value="Cry State">Exclusive Cry State (+2,500 PTS)</option>
                       </select>
                     </div>
 
@@ -612,13 +653,27 @@ export function AnimationEffectsMasterHubModal({
 
                           {/* Title & Subtitle */}
                           <div className="text-center space-y-0.5">
-                            <h4 className="text-xs font-black text-white truncate group-hover:text-[#00d2ff] transition">
-                              {item.name}
-                            </h4>
+                            <div className="flex items-center justify-center gap-1">
+                              <h4 className="text-xs font-black text-white truncate group-hover:text-[#00d2ff] transition">
+                                {item.name}
+                              </h4>
+                              {item.isCryState && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    playCinematicSound(`cry_${item.piece.toLowerCase()}` as any);
+                                  }}
+                                  className="p-1 rounded-md bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 transition"
+                                  title="Audition synthesized cry sound"
+                                >
+                                  <Volume2 className="w-2.5 h-2.5" />
+                                </button>
+                              )}
+                            </div>
                             <p className="text-[10px] text-slate-400 font-bold">{item.piece}</p>
                           </div>
 
-                          {/* Action Button: 1,000 PTS / Equip / Equipped */}
+                          {/* Action Button: Dynamic PTS / Equip / Equipped */}
                           <div>
                             {isOwned ? (
                               <button
@@ -645,12 +700,16 @@ export function AnimationEffectsMasterHubModal({
                             ) : (
                               <button
                                 onClick={() => handleBuy(item)}
-                                className="w-full py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-110 text-slate-950 font-black text-[10px] transition active:scale-95 shadow-[0_0_12px_rgba(245,158,11,0.35)] flex items-center justify-center gap-1 border border-amber-300/40"
+                                className={`w-full py-1.5 rounded-xl text-slate-950 font-black text-[10px] transition active:scale-95 shadow-md flex items-center justify-center gap-1 border ${
+                                  item.isCryState
+                                    ? 'bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 border-amber-200'
+                                    : 'bg-gradient-to-r from-amber-500 to-yellow-500 border-amber-300/40'
+                                }`}
                               >
                                 <div className="w-3.5 h-3.5 rounded-full bg-slate-950 text-amber-400 flex items-center justify-center text-[9px] font-black">
                                   $
                                 </div>
-                                <span>1,000 PTS</span>
+                                <span>{item.price.toLocaleString()} PTS</span>
                               </button>
                             )}
                           </div>
@@ -876,6 +935,198 @@ export function AnimationEffectsMasterHubModal({
                   </div>
                 </div>
               </div>
+            ) : activeTab === 'cry' ? (
+              /* TAB: EXCLUSIVE 2,500 PTS CRY STATES FOR 6 CHESS ELEMENTS */
+              <div className="space-y-4">
+                {/* Banner */}
+                <div className="bg-gradient-to-r from-[#1a1205] via-[#241708] to-[#120e06] border-2 border-amber-500/40 rounded-3xl p-5 shadow-2xl relative overflow-hidden">
+                  <div className="absolute right-0 top-0 bottom-0 w-80 bg-radial from-amber-500/10 to-transparent pointer-events-none" />
+                  <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
+                    <div className="space-y-1 max-w-2xl">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">😭</span>
+                        <h3 className="text-lg sm:text-xl font-black text-amber-300 tracking-wide">
+                          EXCLUSIVE 2,500 POINTS CRY ANIMATIONS &amp; EFFECTS
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] shadow-sm">
+                          6 ELEMENTS
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                        Every chess element (Pawn, Knight, Bishop, Rook, Queen, King) has an exclusive Cry Animation paired with synthesized acoustic soundwaves and custom GPU particle filters — each valued at exactly <strong className="text-amber-300">2,500 PTS</strong>. Audition their sounds, test their keyframe physics, and equip them to your live match loadouts!
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          CRY_STATES_MATRIX.forEach((spec, idx) => {
+                            setTimeout(() => {
+                              playCinematicSound(spec.soundType);
+                            }, idx * 400);
+                          });
+                          setActivityLog('🔊 Auditioning all 6 Chess Element Cry Sounds sequence!');
+                        }}
+                        className="px-4 py-2.5 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-black text-xs border border-amber-400/40 flex items-center gap-1.5 transition active:scale-95 shadow-md"
+                      >
+                        <Volume2 className="w-4 h-4" />
+                        <span>Audition All 6 Sounds</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 6 Elements Cry Cards Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {CRY_STATES_MATRIX.map((spec) => {
+                    const matchingCatalog = MASTER_96_CATALOG.find((c) => c.id === spec.id);
+                    const isOwned = matchingCatalog ? Boolean(inventory[matchingCatalog.id]) : false;
+                    const isEquipped = matchingCatalog ? equipped[matchingCatalog.piece] === matchingCatalog.id : false;
+
+                    return (
+                      <div
+                        key={spec.id}
+                        style={{
+                          borderColor: isOwned ? `${spec.colorAccent}80` : 'rgba(245, 158, 11, 0.25)',
+                        }}
+                        className="bg-[#090e21] border-2 rounded-3xl p-4 flex flex-col justify-between gap-3 shadow-xl hover:shadow-[0_15px_35px_rgba(0,0,0,0.8)] transition group relative overflow-hidden"
+                      >
+                        {/* Top Badges */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-lg">😭</span>
+                            <span className="text-xs font-black text-white">{spec.pieceName}</span>
+                          </div>
+                          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/50 text-amber-300 text-[10px] font-black">
+                            <span>$</span>
+                            <span>{spec.pointsValue.toLocaleString()} PTS</span>
+                          </div>
+                        </div>
+
+                        {/* Center Hologram Artwork with Cry Animation on Hover/Click */}
+                        <div className="relative group/art cursor-pointer" onClick={() => playCinematicSound(spec.soundType)}>
+                          <GlowingPieceArt
+                            pieceCode={spec.piece}
+                            glowColor={spec.colorAccent}
+                            secondaryColor="#ffd700"
+                            size="md"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/art:opacity-100 bg-black/40 backdrop-blur-xs rounded-xl transition duration-200">
+                            <div className="px-3 py-1 rounded-xl bg-amber-500 text-slate-950 font-black text-xs flex items-center gap-1 shadow-lg">
+                              <Volume2 className="w-3.5 h-3.5" />
+                              <span>Audition Sound</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Title & Description */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-black text-white group-hover:text-amber-300 transition truncate">
+                              {spec.name}
+                            </h4>
+                            <span
+                              className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded"
+                              style={{
+                                backgroundColor: `${spec.colorAccent}20`,
+                                color: spec.colorAccent,
+                              }}
+                            >
+                              {spec.animationName}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-300 font-medium leading-snug">
+                            {spec.description}
+                          </p>
+                        </div>
+
+                        {/* Keyframe & Particle Specs */}
+                        <div className="bg-[#050814] rounded-xl p-2.5 border border-white/5 space-y-1 text-[10px]">
+                          <div className="flex items-center justify-between text-slate-400">
+                            <span>Animation:</span>
+                            <span className="font-bold text-slate-200">{spec.animationTitle}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-slate-400">
+                            <span>Effect Modifier:</span>
+                            <span className="font-bold text-amber-300">{spec.effectModifierTitle}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-slate-400">
+                            <span>CSS Selector:</span>
+                            <span className="font-mono text-[9px] text-cyan-300 truncate max-w-[180px]">{spec.cssSelector}</span>
+                          </div>
+                        </div>
+
+                        {/* Interactive Buttons Bar */}
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          {/* Audition Sound Button */}
+                          <button
+                            onClick={() => {
+                              playCinematicSound(spec.soundType);
+                              setActivityLog(`🔊 Played ${spec.pieceName} Synthesized Cry Audio!`);
+                            }}
+                            className="py-2 rounded-xl bg-[#0c1633] hover:bg-[#13234f] text-cyan-300 font-bold text-xs border border-cyan-500/30 flex items-center justify-center gap-1 transition active:scale-95"
+                          >
+                            <Volume2 className="w-3.5 h-3.5" />
+                            <span>Audition Sound</span>
+                          </button>
+
+                          {/* Trigger Live Board Alert */}
+                          <button
+                            onClick={() => {
+                              triggerPieceCryState(spec.piece, 'e4');
+                              setActivityLog(`😭 Triggered ${spec.pieceName} Cry State (+2,500 PTS) on Live Board!`);
+                            }}
+                            className="py-2 rounded-xl bg-gradient-to-r from-amber-600/30 to-orange-600/30 hover:from-amber-600/50 hover:to-orange-600/50 text-amber-200 font-bold text-xs border border-amber-400/40 flex items-center justify-center gap-1 transition active:scale-95"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                            <span>Trigger on Board</span>
+                          </button>
+                        </div>
+
+                        {/* Purchase / Equip Primary Button */}
+                        <div>
+                          {isOwned ? (
+                            <button
+                              onClick={() => {
+                                if (matchingCatalog) handleToggleEquip(matchingCatalog);
+                              }}
+                              className={`w-full py-2.5 rounded-xl font-black text-xs transition active:scale-95 flex items-center justify-center gap-1.5 shadow-md ${
+                                isEquipped
+                                  ? 'bg-[#10b981]/25 hover:bg-rose-500/25 text-[#34d399] hover:text-rose-300 border border-[#10b981]/60 hover:border-rose-500/60'
+                                  : 'bg-[#2563eb] hover:bg-[#1d4ed8] text-white border border-blue-400/40'
+                              }`}
+                            >
+                              {isEquipped ? (
+                                <>
+                                  <Check className="w-4 h-4 text-[#34d399]" />
+                                  <span>EQUIPPED TO LOADOUT</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Shield className="w-4 h-4 text-blue-200" />
+                                  <span>EQUIP TO [{spec.pieceName.toUpperCase()}]</span>
+                                </>
+                              )}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                if (matchingCatalog) handleBuy(matchingCatalog);
+                              }}
+                              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 hover:brightness-110 text-slate-950 font-black text-xs transition active:scale-95 shadow-[0_0_20px_rgba(245,158,11,0.4)] flex items-center justify-center gap-1.5 border border-amber-200"
+                            >
+                              <div className="w-4 h-4 rounded-full bg-slate-950 text-amber-400 flex items-center justify-center text-[10px] font-black">
+                                $
+                              </div>
+                              <span>UNLOCK CRY STATE ({spec.pointsValue.toLocaleString()} PTS)</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             ) : activeTab === 'inventory' ? (
               /* TAB: FULL INVENTORY EXPLORER */
               <div className="space-y-4">
@@ -1098,13 +1349,13 @@ export function AnimationEffectsMasterHubModal({
                   <div className="space-y-0.5">
                     <div className="text-xs font-black text-amber-300 flex items-center gap-1.5">
                       <RotateCw className="w-3.5 h-3.5 text-amber-400" />
-                      <span>1. Daily Lucky Wheel</span>
+                      <span>1. 25-Segment Daily Lucky Wheel</span>
                       <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30 font-mono">
-                        250 - 5,000 PTS
+                        100 - 11,500 PTS + 1M Jackpot
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-300">
-                      Spin once every 24h for randomized prizes &amp; jackpot tiers!
+                      Spin once every 24h across 25 segments with an annual global 1M Jackpot winner!
                     </p>
                   </div>
                   <button

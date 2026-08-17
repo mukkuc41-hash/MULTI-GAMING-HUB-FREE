@@ -28,6 +28,7 @@ const STORAGE_KEYS = {
   RANDOM_QUESTS: 'chess_active_random_quests',
   QUESTS_DATE: 'chess_random_quests_date',
   HATRICK_STATE: 'chess_hatrick_session_state',
+  RESET_FLAG: 'chess_master_hub_v4_reset_done',
 };
 
 const QUEST_POOL: Omit<RandomQuest, 'id' | 'current' | 'completed' | 'claimed'>[] = [
@@ -132,13 +133,31 @@ export function notifyQuestUpdated() {
   }
 }
 
+// Auto Reset Execution on Startup (Ensures all players start fresh with 5,000 points & 0 unlocked purchases)
+function ensureInitialReset() {
+  if (typeof window === 'undefined') return;
+  try {
+    const isReset = localStorage.getItem(STORAGE_KEYS.RESET_FLAG);
+    if (!isReset) {
+      localStorage.setItem(STORAGE_KEYS.POINTS, '5000');
+      localStorage.setItem('chess_master_hub_inventory', '{}');
+      localStorage.setItem('chess_master_hub_equipped', '{}');
+      localStorage.setItem(STORAGE_KEYS.RESET_FLAG, 'true');
+    }
+  } catch {
+    // Ignore storage issues
+  }
+}
+ensureInitialReset();
+
 // Points Core
 export function getUserPoints(): number {
-  if (typeof window === 'undefined') return 10000;
+  if (typeof window === 'undefined') return 5000;
+  ensureInitialReset();
   const val = localStorage.getItem(STORAGE_KEYS.POINTS);
   if (!val) {
-    localStorage.setItem(STORAGE_KEYS.POINTS, '10000');
-    return 10000;
+    localStorage.setItem(STORAGE_KEYS.POINTS, '5000');
+    return 5000;
   }
   return parseInt(val, 10) || 0;
 }
@@ -148,6 +167,18 @@ export function setUserPoints(pts: number, reason = 'Direct update'): void {
   const sanitized = Math.max(0, pts);
   localStorage.setItem(STORAGE_KEYS.POINTS, sanitized.toString());
   notifyPointsUpdated(sanitized, reason);
+}
+
+export function resetAllPurchasesAndPoints(startingPoints = 5000): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(STORAGE_KEYS.POINTS, startingPoints.toString());
+  localStorage.setItem('chess_master_hub_inventory', '{}');
+  localStorage.setItem('chess_master_hub_equipped', '{}');
+  localStorage.setItem(STORAGE_KEYS.RESET_FLAG, 'true');
+  notifyPointsUpdated(startingPoints, 'Purchases and points reset');
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('chess_equipped_effects_updated'));
+  }
 }
 
 export function addPoints(amount: number, reason: string): number {
@@ -167,6 +198,157 @@ export function spendPoints(amount: number, reason: string): boolean {
 
 // Daily Wheel Logic (Once every 24h, or cooldown countdown)
 const DAILY_WHEEL_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+export interface WheelSegmentConfig {
+  segmentNumber: number; // 1 to 25
+  label: string;
+  shortLabel: string;
+  points: number;
+  weight: number; // For segments 1-24; Segment 25 is global trigger
+  probabilityPercent: number;
+  color: string;
+  textColor: string;
+  isJackpot?: boolean;
+}
+
+export const SEGMENTS_25_CONFIG: WheelSegmentConfig[] = [
+  { segmentNumber: 1, label: '100 PTS', shortLabel: '100', points: 100, weight: 86.74, probabilityPercent: 8.324, color: '#0ea5e9', textColor: '#ffffff' },
+  { segmentNumber: 2, label: '500 PTS', shortLabel: '500', points: 500, weight: 82.97, probabilityPercent: 7.962, color: '#8b5cf6', textColor: '#ffffff' },
+  { segmentNumber: 3, label: '1,000 PTS', shortLabel: '1.0K', points: 1000, weight: 79.21, probabilityPercent: 7.600, color: '#10b981', textColor: '#ffffff' },
+  { segmentNumber: 4, label: '1,500 PTS', shortLabel: '1.5K', points: 1500, weight: 75.44, probabilityPercent: 7.238, color: '#f59e0b', textColor: '#1a1a1a' },
+  { segmentNumber: 5, label: '2,000 PTS', shortLabel: '2.0K', points: 2000, weight: 71.67, probabilityPercent: 6.876, color: '#ec4899', textColor: '#ffffff' },
+  { segmentNumber: 6, label: '2,500 PTS', shortLabel: '2.5K', points: 2500, weight: 67.91, probabilityPercent: 6.515, color: '#6366f1', textColor: '#ffffff' },
+  { segmentNumber: 7, label: '3,000 PTS', shortLabel: '3.0K', points: 3000, weight: 64.14, probabilityPercent: 6.153, color: '#14b8a6', textColor: '#ffffff' },
+  { segmentNumber: 8, label: '3,500 PTS', shortLabel: '3.5K', points: 3500, weight: 60.37, probabilityPercent: 5.791, color: '#f97316', textColor: '#ffffff' },
+  { segmentNumber: 9, label: '4,000 PTS', shortLabel: '4.0K', points: 4000, weight: 56.60, probabilityPercent: 5.429, color: '#a855f7', textColor: '#ffffff' },
+  { segmentNumber: 10, label: '4,500 PTS', shortLabel: '4.5K', points: 4500, weight: 52.84, probabilityPercent: 5.067, color: '#06b6d4', textColor: '#1a1a1a' },
+  { segmentNumber: 11, label: '5,000 PTS', shortLabel: '5.0K', points: 5000, weight: 49.07, probabilityPercent: 4.705, color: '#84cc16', textColor: '#1a1a1a' },
+  { segmentNumber: 12, label: '5,500 PTS', shortLabel: '5.5K', points: 5500, weight: 45.30, probabilityPercent: 4.344, color: '#ef4444', textColor: '#ffffff' },
+  { segmentNumber: 13, label: '6,000 PTS', shortLabel: '6.0K', points: 6000, weight: 41.54, probabilityPercent: 3.982, color: '#3b82f6', textColor: '#ffffff' },
+  { segmentNumber: 14, label: '6,500 PTS', shortLabel: '6.5K', points: 6500, weight: 37.77, probabilityPercent: 3.620, color: '#d946ef', textColor: '#ffffff' },
+  { segmentNumber: 15, label: '7,000 PTS', shortLabel: '7.0K', points: 7000, weight: 34.00, probabilityPercent: 3.258, color: '#10b981', textColor: '#ffffff' },
+  { segmentNumber: 16, label: '7,500 PTS', shortLabel: '7.5K', points: 7500, weight: 30.24, probabilityPercent: 2.896, color: '#f59e0b', textColor: '#1a1a1a' },
+  { segmentNumber: 17, label: '8,000 PTS', shortLabel: '8.0K', points: 8000, weight: 26.47, probabilityPercent: 2.534, color: '#ec4899', textColor: '#ffffff' },
+  { segmentNumber: 18, label: '8,500 PTS', shortLabel: '8.5K', points: 8500, weight: 22.70, probabilityPercent: 2.173, color: '#6366f1', textColor: '#ffffff' },
+  { segmentNumber: 19, label: '9,000 PTS', shortLabel: '9.0K', points: 9000, weight: 18.93, probabilityPercent: 1.811, color: '#0ea5e9', textColor: '#ffffff' },
+  { segmentNumber: 20, label: '9,500 PTS', shortLabel: '9.5K', points: 9500, weight: 15.17, probabilityPercent: 1.449, color: '#f97316', textColor: '#ffffff' },
+  { segmentNumber: 21, label: '10,000 PTS', shortLabel: '10K', points: 10000, weight: 11.40, probabilityPercent: 1.093, color: '#a855f7', textColor: '#ffffff' },
+  { segmentNumber: 22, label: '10,500 PTS', shortLabel: '10.5K', points: 10500, weight: 7.63, probabilityPercent: 0.732, color: '#14b8a6', textColor: '#ffffff' },
+  { segmentNumber: 23, label: '11,000 PTS', shortLabel: '11K', points: 11000, weight: 3.87, probabilityPercent: 0.371, color: '#d946ef', textColor: '#ffffff' },
+  { segmentNumber: 24, label: '11,500 PTS', shortLabel: '11.5K', points: 11500, weight: 0.10, probabilityPercent: 0.010, color: '#ef4444', textColor: '#ffffff' },
+  { segmentNumber: 25, label: '1,000,000 JACKPOT', shortLabel: '1M ★', points: 1000000, weight: 0, probabilityPercent: 0, color: '#ffd700', textColor: '#1a1003', isJackpot: true },
+];
+
+export interface GlobalJackpotAnnualState {
+  currentYear: number;
+  totalPlatformSpinsThisYear: number;
+  jackpotWonThisYear: boolean;
+  winningTicketNumber: number;
+  winnerInfo?: {
+    claimedTimestamp: number;
+    pointsAwarded: number;
+    yearCycle: number;
+  };
+}
+
+const GLOBAL_JACKPOT_STORAGE_KEY = 'chess_global_annual_jackpot_state_v1';
+
+export function getGlobalJackpotAnnualState(): GlobalJackpotAnnualState {
+  const currentYear = new Date().getFullYear();
+  const defaultState: GlobalJackpotAnnualState = {
+    currentYear,
+    totalPlatformSpinsThisYear: 0,
+    jackpotWonThisYear: false,
+    winningTicketNumber: ((currentYear * 2654435761) % 50000) + 1234, // Deterministic ticket seed for the 365-day cycle
+  };
+
+  if (typeof window === 'undefined') return defaultState;
+
+  try {
+    const raw = localStorage.getItem(GLOBAL_JACKPOT_STORAGE_KEY);
+    if (!raw) {
+      localStorage.setItem(GLOBAL_JACKPOT_STORAGE_KEY, JSON.stringify(defaultState));
+      return defaultState;
+    }
+    const parsed: GlobalJackpotAnnualState = JSON.parse(raw);
+    if (parsed.currentYear !== currentYear) {
+      // New 365-day annual cycle rollover
+      const newState: GlobalJackpotAnnualState = {
+        currentYear,
+        totalPlatformSpinsThisYear: 0,
+        jackpotWonThisYear: false,
+        winningTicketNumber: ((currentYear * 2654435761) % 50000) + 1234,
+      };
+      localStorage.setItem(GLOBAL_JACKPOT_STORAGE_KEY, JSON.stringify(newState));
+      return newState;
+    }
+    return parsed;
+  } catch {
+    return defaultState;
+  }
+}
+
+export function saveGlobalJackpotAnnualState(state: GlobalJackpotAnnualState): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(GLOBAL_JACKPOT_STORAGE_KEY, JSON.stringify(state));
+    window.dispatchEvent(new CustomEvent('chess_global_jackpot_state_updated', { detail: state }));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+/**
+ * Determine the winning slice using the strict 25-segment specification:
+ * 1. Global annual trigger check for Segment 25 (guarantees exactly 1 winner per 365-day cycle).
+ * 2. If not the jackpot trigger, select from Segments 1 to 24 using exact inversely scaled weights (86.74 down to 0.10, total 1042.06).
+ */
+export function determineWinningWheelSlice(): { slice: WheelSegmentConfig; sliceIndex: number; isGlobalJackpotHit: boolean } {
+  const annualState = getGlobalJackpotAnnualState();
+  const nextSpinCount = annualState.totalPlatformSpinsThisYear + 1;
+  annualState.totalPlatformSpinsThisYear = nextSpinCount;
+
+  // Check Global Jackpot Trigger (Exactly 1 winner per year)
+  if (!annualState.jackpotWonThisYear && nextSpinCount === annualState.winningTicketNumber) {
+    annualState.jackpotWonThisYear = true;
+    annualState.winnerInfo = {
+      claimedTimestamp: Date.now(),
+      pointsAwarded: 1000000,
+      yearCycle: annualState.currentYear,
+    };
+    saveGlobalJackpotAnnualState(annualState);
+    return {
+      slice: SEGMENTS_25_CONFIG[24], // Segment 25 (1,000,000 JACKPOT)
+      sliceIndex: 24,
+      isGlobalJackpotHit: true,
+    };
+  }
+
+  saveGlobalJackpotAnnualState(annualState);
+
+  // Non-Jackpot Probability Distribution (Segments 1 to 24)
+  const nonJackpotSegments = SEGMENTS_25_CONFIG.slice(0, 24);
+  const totalWeight = nonJackpotSegments.reduce((acc, seg) => acc + seg.weight, 0); // 1042.06
+  const rand = Math.random() * totalWeight;
+
+  let cumulative = 0;
+  for (let i = 0; i < nonJackpotSegments.length; i++) {
+    cumulative += nonJackpotSegments[i].weight;
+    if (rand <= cumulative || i === nonJackpotSegments.length - 1) {
+      return {
+        slice: nonJackpotSegments[i],
+        sliceIndex: i,
+        isGlobalJackpotHit: false,
+      };
+    }
+  }
+
+  return {
+    slice: nonJackpotSegments[0],
+    sliceIndex: 0,
+    isGlobalJackpotHit: false,
+  };
+}
 
 export function checkDailyWheelStatus(): {
   canSpin: boolean;

@@ -1156,6 +1156,9 @@ export default function App() {
                   readOnly={isReadOnlyBoard}
                   onFlipOrientation={() => setOrientation((prev) => (prev === 'w' ? 'b' : 'w'))}
                   onChangeTheme={(newTheme) => setSettings((prev) => ({ ...prev, boardTheme: newTheme }))}
+                  onOpenMasterHub={() => setIsMasterHubOpen(true)}
+                  onOpenQuests={() => setIsQuestsOpen(true)}
+                  onOpenDailyWheel={() => setIsDailyWheelOpen(true)}
                 />
               </div>
             </>
@@ -1726,6 +1729,10 @@ export default function App() {
       <DailyWheelModal
         isOpen={isDailyWheelOpen}
         onClose={() => setIsDailyWheelOpen(false)}
+        onOpenQuestsOrHatrick={() => {
+          setIsDailyWheelOpen(false);
+          setIsQuestsOpen(true);
+        }}
       />
 
       {/* Simultaneous Hatrick Achievement Banner Toast */}
@@ -1741,7 +1748,7 @@ export default function App() {
                   Hatrick Complete! 3 Consecutive Captures!
                 </h4>
                 <p className="text-xs font-bold text-slate-900/90">
-                  +{hatrickNotification.reward.toLocaleString()} PTS added to your wallet!
+                  +{(hatrickNotification.reward ?? 2000).toLocaleString()} PTS added to your wallet!
                 </p>
               </div>
             </div>

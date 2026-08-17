@@ -1,8 +1,36 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Sparkles, Layers, Box, Eye, Wand2, Play, MousePointer, Activity, Shield, Swords, RefreshCw } from 'lucide-react';
+import {
+  X,
+  Sparkles,
+  Layers,
+  Box,
+  Eye,
+  Wand2,
+  Play,
+  MousePointer,
+  Activity,
+  Shield,
+  Swords,
+  RefreshCw,
+  Lock,
+  Unlock,
+  Check,
+  ShoppingBag,
+  Coins,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { VARIATIONS_96_MATRIX, PieceElementCode } from '../utils/cinematicVfx';
 import { ChessPiece } from '../utils/chessPieces';
+import {
+  findCatalogItem,
+  getMasterInventory,
+  getEquippedMasterEffects,
+  purchaseCatalogItem,
+  equipCatalogItem,
+  unequipCatalogItem,
+  getPurchasedItemsCount,
+} from '../utils/masterEffectsCatalog';
+import { getUserPoints } from '../utils/pointsManager';
 
 interface AnimationLibraryModalProps {
   isOpen: boolean;
@@ -30,6 +58,29 @@ export const AnimationLibraryModal: React.FC<AnimationLibraryModalProps> = ({
   const [matrixStyle, setMatrixStyle] = useState<'all' | 1 | 2 | 3 | 4>('all');
   const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
   const [animTriggerKey, setAnimTriggerKey] = useState<number>(1);
+  const [onlyPurchasedFilter, setOnlyPurchasedFilter] = useState<boolean>(false);
+
+  // Inventory & Equipped state
+  const [inventory, setInventory] = useState<Record<string, boolean>>(() => getMasterInventory());
+  const [equipped, setEquipped] = useState<Record<string, string>>(() => getEquippedMasterEffects());
+  const [points, setPoints] = useState<number>(() => getUserPoints());
+  const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setInventory(getMasterInventory());
+      setEquipped(getEquippedMasterEffects());
+      setPoints(getUserPoints());
+    };
+    window.addEventListener('chess_equipped_effects_updated', handleUpdate);
+    window.addEventListener('chess_points_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+    return () => {
+      window.removeEventListener('chess_equipped_effects_updated', handleUpdate);
+      window.removeEventListener('chess_points_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
 
   // FLIP animation slot state
   const [slotIdx, setSlotIdx] = useState<number>(1);
@@ -298,6 +349,22 @@ export const AnimationLibraryModal: React.FC<AnimationLibraryModalProps> = ({
                   ))}
                 </div>
 
+                {/* Purchased Only Filter Toggle */}
+                <button
+                  onClick={() => setOnlyPurchasedFilter(!onlyPurchasedFilter)}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 ${
+                    onlyPurchasedFilter
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                      : 'bg-black/50 text-slate-400 border-white/10 hover:text-white'
+                  }`}
+                >
+                  <ShoppingBag className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>{onlyPurchasedFilter ? 'Purchased Only' : 'Show All (96)'}</span>
+                  <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/30 text-[9px] font-black text-emerald-200">
+                    {getPurchasedItemsCount()}/96
+                  </span>
+                </button>
+
                 {/* Refresh Trigger */}
                 <button
                   onClick={() => setAnimTriggerKey((k) => k + 1)}
@@ -319,6 +386,14 @@ export const AnimationLibraryModal: React.FC<AnimationLibraryModalProps> = ({
               ).map((v) => {
                 const isCapturing = v.action === 'capturing';
                 const isSelected = activePreviewId === v.id;
+                const catalogItem = findCatalogItem(v.piece, v.action, v.styleIndex);
+                const isOwned = catalogItem ? Boolean(inventory[catalogItem.id]) : false;
+                const isEquipped = catalogItem ? equipped[catalogItem.piece] === catalogItem.id : false;
+
+                if (onlyPurchasedFilter && !isOwned) {
+                  return null;
+                }
+
                 return (
                   <div
                     key={`${v.id}-${animTriggerKey}`}
@@ -326,33 +401,59 @@ export const AnimationLibraryModal: React.FC<AnimationLibraryModalProps> = ({
                     className={`relative p-3.5 rounded-xl border transition-all duration-200 flex flex-col justify-between gap-3 cursor-pointer ${
                       isSelected
                         ? 'bg-slate-900 border-cyan-400 shadow-[0_0_20px_rgba(0,242,254,0.3)]'
-                        : 'bg-black/40 hover:bg-slate-900/80 border-white/10'
+                        : isOwned
+                        ? 'bg-black/60 hover:bg-slate-900/80 border-cyan-500/30'
+                        : 'bg-black/30 hover:bg-slate-950 border-white/10'
                     }`}
                   >
-                    {/* Top Row: Piece and Badge */}
+                    {/* Top Row: Piece, Style & Ownership Badge */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span
                           className={`w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center ${
-                            isCapturing ? 'bg-rose-500/20 text-rose-300 border border-rose-400/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
+                            isCapturing
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-400/40'
+                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
                           }`}
                         >
                           {v.piece}
                         </span>
-                        <span className="text-xs font-black text-white">
-                          Style {v.styleIndex}
-                        </span>
+                        <div>
+                          <span className="text-xs font-black text-white block">
+                            {v.styleName || `Style ${v.styleIndex}`}
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-mono">
+                            Style #{v.styleIndex}
+                          </span>
+                        </div>
                       </div>
-                      <span
-                        className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                          isCapturing
-                            ? 'bg-rose-950/80 text-rose-400 border border-rose-500/40'
-                            : 'bg-emerald-950/80 text-emerald-400 border border-emerald-500/40'
-                        }`}
-                      >
-                        {isCapturing ? <Swords className="w-2.5 h-2.5" /> : <Shield className="w-2.5 h-2.5" />}
-                        {v.action}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {isOwned ? (
+                          isEquipped ? (
+                            <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-500 text-slate-950 flex items-center gap-0.5">
+                              <Check className="w-2.5 h-2.5 stroke-[3]" /> EQUIPPED
+                            </span>
+                          ) : (
+                            <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">
+                              ✨ OWNED
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center gap-0.5">
+                            <Lock className="w-2 h-2" /> 1,000 PTS
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Titles */}
+                    <div className="space-y-0.5">
+                      <div className="text-[11px] font-black text-cyan-300 truncate" title={v.animationTitle}>
+                        🎬 {v.animationTitle || `${v.pieceName} ${v.styleName}`}
+                      </div>
+                      <div className="text-[10px] text-purple-300 font-medium truncate" title={v.effectModifierTitle}>
+                        ✨ {v.effectModifierTitle || v.effectFilter}
+                      </div>
                     </div>
 
                     {/* Center Animated Piece Preview Arena */}
@@ -383,14 +484,69 @@ export const AnimationLibraryModal: React.FC<AnimationLibraryModalProps> = ({
                     </div>
 
                     {/* Bottom Specs & Keyframe Info */}
-                    <div className="space-y-1 text-[10px]">
-                      <div className="flex items-center justify-between text-slate-400 font-mono">
-                        <span>{v.animationName.replace('anim-core-', '')}</span>
-                        <span style={{ color: v.colorAccent }} className="font-bold">{v.speed}</span>
+                    <div className="space-y-1.5 text-[10px]">
+                      <div className="flex items-center justify-between text-slate-400 font-mono text-[9px] bg-black/40 px-2 py-0.5 rounded border border-white/5 truncate" title={v.cssSelector}>
+                        <span className="truncate text-indigo-300">{v.cssSelector || `[data-piece="${v.piece}"].piece-${v.action}.style-${v.styleIndex}`}</span>
+                        <span style={{ color: v.colorAccent }} className="font-bold shrink-0 ml-1">{v.speed}</span>
                       </div>
                       <p className="text-slate-300 text-[10px] leading-tight line-clamp-2">
                         {v.description}
                       </p>
+
+                      {/* Equip / Unlock Footer Action */}
+                      <div className="pt-1 border-t border-white/10 flex items-center justify-between">
+                        {isOwned ? (
+                          isEquipped ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (catalogItem) {
+                                  unequipCatalogItem(catalogItem.piece);
+                                  setEquipped(getEquippedMasterEffects());
+                                }
+                              }}
+                              className="text-[9px] font-bold text-rose-400 hover:text-rose-300 underline"
+                            >
+                              Unequip from Chess
+                            </button>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (catalogItem) {
+                                  equipCatalogItem(catalogItem.piece, catalogItem.id);
+                                  setEquipped(getEquippedMasterEffects());
+                                }
+                              }}
+                              className="px-2 py-0.5 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 text-[9px] font-bold transition flex items-center gap-1"
+                            >
+                              <Check className="w-2.5 h-2.5" /> Equip to Main Game
+                            </button>
+                          )
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (catalogItem) {
+                                const res = purchaseCatalogItem(catalogItem.id);
+                                if (res.success) {
+                                  setInventory(getMasterInventory());
+                                  setEquipped(getEquippedMasterEffects());
+                                  setPoints(getUserPoints());
+                                } else if (onOpenMasterHub) {
+                                  onOpenMasterHub();
+                                }
+                              }
+                            }}
+                            className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/40 text-[9px] font-bold transition flex items-center gap-1"
+                          >
+                            <Unlock className="w-2.5 h-2.5" /> Unlock (1k PTS)
+                          </button>
+                        )}
+                        <span className="text-[9px] text-slate-500 font-mono capitalize">
+                          {v.action}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );

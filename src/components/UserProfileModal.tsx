@@ -235,7 +235,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               Score
             </span>
             <span className="text-xl font-black text-[#38bdf8]">
-              {data.score.toLocaleString()}
+              {(data?.score ?? 1000).toLocaleString()}
             </span>
           </div>
         </div>

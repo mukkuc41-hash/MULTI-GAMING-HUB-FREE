@@ -19,10 +19,8 @@ import {
   Code,
   Shield,
   Eye,
-  CheckCircle2,
-  Send,
 } from 'lucide-react';
-import { loadVfxSettings, saveVfxSettings, VfxSettings } from '../utils/cinematicVfx';
+import { loadVfxSettings, VfxSettings } from '../utils/cinematicVfx';
 
 export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king';
 export type MoveQuality = 'brilliant' | 'great' | 'best' | 'blunder' | 'checkmate' | 'sacrifice' | 'normal';

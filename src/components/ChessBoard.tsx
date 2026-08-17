@@ -20,6 +20,13 @@ import {
   X,
   Play,
   CheckCircle2,
+  Lock,
+  Unlock,
+  ShoppingBag,
+  Check,
+  Crown,
+  Coins,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   loadVfxSettings,
@@ -30,13 +37,28 @@ import {
   VfxParticle,
   VARIATIONS_96_MATRIX,
   PieceElementCode,
+  triggerPieceCryState,
+  CRY_STATES_MATRIX,
 } from '../utils/cinematicVfx';
 import {
   getEquippedItemForPiece,
   getEquippedMasterEffects,
   getMasterInventory,
+  findCatalogItem,
+  isVariationPurchased,
+  purchaseCatalogItem,
+  equipCatalogItem,
+  unequipCatalogItem,
+  getPurchasedItemsCount,
   CatalogItem,
+  MasterPieceType,
 } from '../utils/masterEffectsCatalog';
+import { getUserPoints, spendPoints, addPoints } from '../utils/pointsManager';
+import {
+  calculateSquareThreats,
+  scanBoardForHighStressThreats,
+  SquareThreatData,
+} from '../utils/threatEngine';
 
 interface ChessBoardProps {
   chess: Chess;
@@ -50,6 +72,9 @@ interface ChessBoardProps {
   readOnly?: boolean;
   onFlipOrientation?: () => void;
   onChangeTheme?: (theme: BoardTheme) => void;
+  onOpenMasterHub?: () => void;
+  onOpenQuests?: () => void;
+  onOpenDailyWheel?: () => void;
 }
 
 interface TacticalArrow {
@@ -212,7 +237,10 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   readOnly = false,
   onFlipOrientation,
   onChangeTheme,
-}) => {
+  onOpenMasterHub,
+  onOpenQuests,
+  onOpenDailyWheel,
+}: ChessBoardProps) => {
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [draggedSquare, setDraggedSquare] = useState<Square | null>(null);
   const [hoveredSquare, setHoveredSquare] = useState<Square | null>(null);
@@ -233,7 +261,15 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   const [vfxSettings, setVfxSettings] = useState<VfxSettings>(() => loadVfxSettings());
   const [equippedRevision, setEquippedRevision] = useState<number>(0);
 
-  // Listen for VFX settings updates and equipped loadout updates
+  // Master Catalog, Inventory & Points State (Ensuring ONLY purchased effects apply)
+  const [masterInventory, setMasterInventory] = useState<Record<string, boolean>>(() => getMasterInventory());
+  const [equippedMaster, setEquippedMaster] = useState<Record<string, string>>(() => getEquippedMasterEffects());
+  const [userPoints, setUserPointsState] = useState<number>(() => getUserPoints());
+  const [selectedUnlockItem, setSelectedUnlockItem] = useState<CatalogItem | null>(null);
+  const [filterPurchasedOnly, setFilterPurchasedOnly] = useState<boolean>(false);
+  const [vfxFeedbackToast, setVfxFeedbackToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  // Listen for VFX settings updates, points updates, and equipped loadout updates
   useEffect(() => {
     const handleVfxUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<VfxSettings>;
@@ -243,15 +279,49 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     };
     const handleEquippedUpdate = () => {
       setEquippedRevision((prev) => prev + 1);
+      setMasterInventory(getMasterInventory());
+      setEquippedMaster(getEquippedMasterEffects());
+      setUserPointsState(getUserPoints());
+    };
+    const handlePointsUpdate = () => {
+      setUserPointsState(getUserPoints());
+    };
+    const handlePieceCry = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.pieceCode) {
+        const pCode = detail.pieceCode.toLowerCase() as 'p' | 'n' | 'b' | 'r' | 'q' | 'k';
+        const targetSquare = (detail.square || 'e4') as Square;
+        const ghostId = Date.now() + Math.random();
+        setCryGhosts((prev) => [
+          ...prev,
+          {
+            id: ghostId,
+            square: targetSquare,
+            pieceType: pCode,
+            pieceColor: 'w',
+          },
+        ]);
+        setVfxFeedbackToast({
+          message: `😭 ${detail.pieceName || 'Piece'} Triggered Cry State! +${(detail.pointsAwarded || 2500).toLocaleString()} PTS Awarded!`,
+          type: 'success',
+        });
+        setTimeout(() => {
+          setCryGhosts((prev) => prev.filter((g) => g.id !== ghostId));
+        }, 1200);
+      }
     };
 
     window.addEventListener('chess_vfx_settings_updated', handleVfxUpdate);
     window.addEventListener('chess_equipped_effects_updated', handleEquippedUpdate);
+    window.addEventListener('chess_points_updated', handlePointsUpdate);
+    window.addEventListener('chess_piece_cry_triggered', handlePieceCry);
     window.addEventListener('storage', handleEquippedUpdate);
 
     return () => {
       window.removeEventListener('chess_vfx_settings_updated', handleVfxUpdate);
       window.removeEventListener('chess_equipped_effects_updated', handleEquippedUpdate);
+      window.removeEventListener('chess_points_updated', handlePointsUpdate);
+      window.removeEventListener('chess_piece_cry_triggered', handlePieceCry);
       window.removeEventListener('storage', handleEquippedUpdate);
     };
   }, []);
@@ -266,7 +336,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   const [floatingBadges, setFloatingBadges] = useState<FloatingMoveBadge[]>([]);
   const [isBoardShaking, setIsBoardShaking] = useState<boolean>(false);
 
-  // 96-State Capture Ghosts & Occupation Active States
+  // 96-State Capture Ghosts, Occupation Active States & Cry States
   const [captureGhosts, setCaptureGhosts] = useState<{
     id: number;
     square: Square;
@@ -275,10 +345,25 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     styleIndex: 1 | 2 | 3 | 4;
   }[]>([]);
 
+  const [cryGhosts, setCryGhosts] = useState<{
+    id: number;
+    square: Square;
+    pieceType: 'p' | 'n' | 'b' | 'r' | 'q' | 'k';
+    pieceColor: 'w' | 'b';
+  }[]>([]);
+
   const [occupyingSquare, setOccupyingSquare] = useState<{
     square: Square;
     styleIndex: 1 | 2 | 3 | 4;
   } | null>(null);
+
+  // Real-time Multi-Element High Stress Threat State (3+ Enemy Attackers)
+  const [highStressThreatMap, setHighStressThreatMap] = useState<Partial<Record<Square, SquareThreatData>>>({});
+  const [activeThreatTelemetry, setActiveThreatTelemetry] = useState<{
+    totalHighStress: number;
+    mostThreatened: SquareThreatData | null;
+  }>({ totalHighStress: 0, mostThreatened: null });
+  const triggeredHighStressSetRef = useRef<Set<string>>(new Set());
 
   // Real-time 96-Variation Tester State
   const [simulationTarget, setSimulationTarget] = useState<{
@@ -291,7 +376,7 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
   } | null>(null);
 
   const [testerPieceFilter, setTesterPieceFilter] = useState<PieceElementCode>('N');
-  const [testerActionFilter, setTesterActionFilter] = useState<'capturing' | 'occupying'>('capturing');
+  const [testerActionFilter, setTesterActionFilter] = useState<'capturing' | 'occupying' | 'cry'>('capturing');
 
   // Piece ID Tracking for smooth Motion layoutId slide animations
   const [pieceIds, setPieceIds] = useState<Record<string, string>>(() => {
@@ -681,6 +766,105 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     }
   }, [lastMove, chess, kingInCheckSquare, vfxSettings, getSquareCoords, triggerParticleBurst]);
 
+  // High-Stress Multi-Threat & Cry State Trigger Engine (3+ Enemy Attackers = Cry State + 2,500 PTS)
+  useEffect(() => {
+    const stressList = scanBoardForHighStressThreats(chess);
+    const map: Partial<Record<Square, SquareThreatData>> = {};
+    let maxThreat: SquareThreatData | null = null;
+
+    for (const item of stressList) {
+      map[item.square] = item;
+      if (!maxThreat || item.attackerCount > maxThreat.attackerCount) {
+        maxThreat = item;
+      }
+    }
+
+    setHighStressThreatMap(map);
+    setActiveThreatTelemetry({
+      totalHighStress: stressList.length,
+      mostThreatened: maxThreat,
+    });
+
+    // Check for pieces newly entering high-stress conditions (>= 3 enemy attackers)
+    for (const item of stressList) {
+      const fenKey = `${chess.history().length}_${item.square}_${item.pieceType}_${item.attackerCount}`;
+      if (!triggeredHighStressSetRef.current.has(fenKey)) {
+        triggeredHighStressSetRef.current.add(fenKey);
+
+        // 1. Award +2,500 Points Reward
+        addPoints(2500, `High-Stress Threat Defense (${item.pieceCode})`);
+        setUserPointsState(getUserPoints());
+
+        // 2. Play piece-specific synthesized cry sound
+        const crySpec = CRY_STATES_MATRIX.find((c) => c.piece === item.pieceCode);
+        if (crySpec && soundEnabled) {
+          playCinematicSound(crySpec.soundType);
+        }
+
+        // 3. Trigger board visual burst & shockwave
+        const coords = getSquareCoords(item.square);
+        const cryColor = crySpec?.colorAccent || '#f59e0b';
+        triggerParticleBurst(coords.x, coords.y, [cryColor, '#00d2ff', '#ffffff', '#ef4444', '#f59e0b'], 36);
+
+        const shockId = Date.now() + Math.random();
+        setShockwaves((prev) => [
+          ...prev,
+          {
+            id: shockId,
+            x: coords.x,
+            y: coords.y,
+            color: cryColor,
+            glowColor: cryColor,
+            size: coords.size,
+          },
+        ]);
+        setTimeout(() => setShockwaves((prev) => prev.filter((s) => s.id !== shockId)), 800);
+
+        // Add floating cry reward badge
+        const badgeId = Date.now() + Math.random();
+        setFloatingBadges((prev) => [
+          ...prev,
+          {
+            id: badgeId,
+            x: coords.x,
+            y: coords.y,
+            text: `😭 CRY DEFENSE +2,500 PTS (${item.attackerCount}⚔️)`,
+            color: 'text-amber-300 font-black',
+            bg: 'bg-gradient-to-r from-amber-950/95 to-slate-950/95',
+            border: 'border-amber-400',
+          },
+        ]);
+        setTimeout(() => setFloatingBadges((prev) => prev.filter((b) => b.id !== badgeId)), 1400);
+
+        // Add to Cry Ghosts so .piece-cry animates
+        const ghostId = Date.now() + Math.random();
+        setCryGhosts((prev) => [
+          ...prev,
+          {
+            id: ghostId,
+            square: item.square,
+            pieceType: item.pieceType,
+            pieceColor: item.pieceColor,
+          },
+        ]);
+        setTimeout(() => setCryGhosts((prev) => prev.filter((cg) => cg.id !== ghostId)), 1200);
+
+        // Trigger Screen Shake if enabled
+        if (vfxSettings.screenShake) {
+          setIsBoardShaking(true);
+          setTimeout(() => setIsBoardShaking(false), 420);
+        }
+
+        // Toast feedback
+        setVfxFeedbackToast({
+          message: `⚠️ HIGH STRESS! ${crySpec?.pieceName || item.pieceCode} is under attack by ${item.attackerCount} enemy pieces! 3D Tears Flowing & +2,500 PTS Cry Reward Granted!`,
+          type: 'info',
+        });
+        setTimeout(() => setVfxFeedbackToast((curr) => (curr?.type === 'info' ? null : curr)), 4500);
+      }
+    }
+  }, [chess.fen(), lastMove, soundEnabled, vfxSettings.screenShake, getSquareCoords, triggerParticleBurst]);
+
   // Trigger signature physics test effect right onto the main board
   const triggerSignaturePhysicsPreset = (presetName: string) => {
     const centerCoords = {
@@ -781,6 +965,79 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
     setTimeout(() => {
       setSimulationTarget((curr) => (curr?.id === simId ? null : curr));
     }, 850);
+  };
+
+  // Select or trigger a 96-variation style with strict ownership verification
+  const handleSelectOrTriggerVariation = (
+    piece: PieceElementCode,
+    action: 'capturing' | 'occupying',
+    styleIndex: 1 | 2 | 3 | 4
+  ) => {
+    const matchingCatalog = findCatalogItem(piece, action, styleIndex);
+    if (!matchingCatalog) return;
+
+    const isOwned = Boolean(masterInventory[matchingCatalog.id]);
+
+    if (!isOwned) {
+      // LOCKED! Prompt 1-Click Purchase & Unlock Modal
+      setSelectedUnlockItem(matchingCatalog);
+      setVfxFeedbackToast({
+        message: `🔒 "${matchingCatalog.name}" is locked. Unlock for 1,000 PTS to apply in main chess!`,
+        type: 'info',
+      });
+      setTimeout(() => setVfxFeedbackToast((curr) => (curr?.type === 'info' ? null : curr)), 3500);
+      return;
+    }
+
+    // IS OWNED! Trigger simulation live on e4 and equip for main game
+    triggerSimulationVariation(piece, action, styleIndex, 'w');
+    equipCatalogItem(matchingCatalog.piece, matchingCatalog.id);
+    setEquippedMaster(getEquippedMasterEffects());
+
+    setVfxFeedbackToast({
+      message: `✨ Equipped "${matchingCatalog.name}" for ${matchingCatalog.piece}! Active in main chess.`,
+      type: 'success',
+    });
+    setTimeout(() => setVfxFeedbackToast((curr) => (curr?.type === 'success' ? null : curr)), 3500);
+  };
+
+  // Direct 1-Click Unlock with Points
+  const handleUnlockItemDirectly = (item: CatalogItem) => {
+    const res = purchaseCatalogItem(item.id);
+    if (res.success) {
+      setMasterInventory(getMasterInventory());
+      setEquippedMaster(getEquippedMasterEffects());
+      setUserPointsState(getUserPoints());
+      setSelectedUnlockItem(null);
+
+      // Trigger live simulation on e4
+      const pCode = item.pieceCode;
+      const actionType = item.category.includes('Capture') ? 'capturing' : 'occupying';
+      triggerSimulationVariation(pCode, actionType, item.variantIndex as 1 | 2 | 3 | 4, 'w');
+
+      setVfxFeedbackToast({
+        message: `🎉 Unlocked & equipped "${item.name}" for ${item.piece}! Active in main chess.`,
+        type: 'success',
+      });
+      setTimeout(() => setVfxFeedbackToast(null), 4000);
+    } else {
+      setVfxFeedbackToast({
+        message: res.message,
+        type: 'error',
+      });
+      setTimeout(() => setVfxFeedbackToast(null), 4000);
+    }
+  };
+
+  // Unequip specific piece
+  const handleUnequipPiece = (piece: MasterPieceType) => {
+    unequipCatalogItem(piece);
+    setEquippedMaster(getEquippedMasterEffects());
+    setVfxFeedbackToast({
+      message: `Unequipped effect for ${piece}. Standard chess visuals restored.`,
+      type: 'info',
+    });
+    setTimeout(() => setVfxFeedbackToast(null), 3000);
   };
 
   // Get legal move target squares for currently selected square
@@ -955,6 +1212,13 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
             <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-500/20 border border-red-500/50 text-red-300 animate-pulse font-bold text-[10px]">
               <Flame className="w-3 h-3 text-red-400" />
               <span>Check!</span>
+            </div>
+          )}
+
+          {/* High Stress Threat Alert Pill */}
+          {activeThreatTelemetry.totalHighStress > 0 && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/20 border border-amber-400/60 text-amber-300 animate-pulse font-bold text-[10px] shadow-[0_0_10px_rgba(245,158,11,0.3)]">
+              <span>😭 {activeThreatTelemetry.totalHighStress} Under 3+ Threats (+2,500 PTS)</span>
             </div>
           )}
         </div>
@@ -1168,14 +1432,16 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
             </div>
 
             {/* 96-State Variation Matrix Live Trigger Toolbar */}
-            <div className="mt-2.5 pt-2.5 border-t border-white/10 flex flex-col gap-2">
+            <div className="mt-2.5 pt-2.5 border-t border-white/10 flex flex-col gap-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-black text-cyan-400 uppercase tracking-wide">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] font-black text-cyan-400 uppercase tracking-wide flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-cyan-400" />
                     96 Variations Matrix:
                   </span>
+
                   {/* Piece Filter Selector */}
-                  <div className="flex items-center gap-1 bg-slate-950 p-0.5 rounded-lg border border-white/10">
+                  <div className="flex items-center gap-0.5 bg-slate-950 p-0.5 rounded-lg border border-white/10">
                     {(['P', 'N', 'B', 'R', 'Q', 'K'] as PieceElementCode[]).map((pCode) => (
                       <button
                         key={pCode}
@@ -1213,59 +1479,495 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                     >
                       🛡️ Occupy
                     </button>
+                    <button
+                      onClick={() => setTesterActionFilter('cry')}
+                      className={`px-2 py-1 rounded text-[10px] font-black transition ${
+                        testerActionFilter === 'cry'
+                          ? 'bg-amber-500 text-slate-950 shadow-[0_0_8px_#f59e0b]'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      😭 Cry (2.5k PTS)
+                    </button>
                   </div>
                 </div>
 
-                <span className="text-[10px] text-slate-400 italic">
-                  Click below to trigger live on e4:
-                </span>
+                {/* Purchased Only Toggle & Count */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setFilterPurchasedOnly(!filterPurchasedOnly)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition flex items-center gap-1 ${
+                      filterPurchasedOnly
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/50 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                        : 'bg-slate-950/80 text-slate-400 border-white/10 hover:text-white'
+                    }`}
+                  >
+                    <ShoppingBag className="w-3 h-3 text-emerald-400" />
+                    <span>{filterPurchasedOnly ? 'Filter: Purchased Only' : 'Show All 96'}</span>
+                    <span className="ml-1 px-1.5 py-0.2 rounded-full bg-emerald-500/30 text-[9px] font-black text-emerald-200">
+                      {getPurchasedItemsCount()}/96
+                    </span>
+                  </button>
+                </div>
               </div>
 
-              {/* 4 Styles Trigger Buttons for selected Piece & Action */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[1, 2, 3, 4].map((sIndex) => {
-                  const matchingSpec = VARIATIONS_96_MATRIX.find(
-                    (v) =>
-                      v.piece === testerPieceFilter &&
-                      v.action === testerActionFilter &&
-                      v.styleIndex === sIndex
-                  );
+              {/* Styles Trigger & Equip Grid or Dedicated Cry State Card */}
+              {testerActionFilter === 'cry' ? (
+                (() => {
+                  const crySpec = CRY_STATES_MATRIX.find((c) => c.piece === testerPieceFilter);
+                  const matchingCatalog = crySpec ? findCatalogItem(testerPieceFilter, 'cry', 1) || null : null;
+                  const isOwned = matchingCatalog ? Boolean(masterInventory[matchingCatalog.id]) : false;
+                  const isEquipped = matchingCatalog ? equippedMaster[matchingCatalog.piece] === matchingCatalog.id : false;
+
+                  if (!crySpec) return null;
+
                   return (
-                    <button
-                      key={sIndex}
-                      onClick={() =>
-                        triggerSimulationVariation(
-                          testerPieceFilter,
-                          testerActionFilter,
-                          sIndex as 1 | 2 | 3 | 4
-                        )
-                      }
-                      style={{ borderColor: matchingSpec?.colorAccent }}
-                      className="p-2 rounded-xl bg-slate-950/80 hover:bg-slate-900 border border-white/15 text-left transition transform hover:-translate-y-0.5 active:scale-95 group flex flex-col justify-between gap-1 shadow-md"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-black text-white group-hover:text-cyan-300">
-                          Style {sIndex}
-                        </span>
-                        <span
-                          className="text-[9px] font-mono px-1.5 py-0.2 rounded font-bold"
+                    <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#1b1206] via-[#241708] to-[#140e06] border-2 border-amber-500/40 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl font-serif text-white shadow-lg border"
                           style={{
-                            backgroundColor: `${matchingSpec?.colorAccent || '#fff'}25`,
-                            color: matchingSpec?.colorAccent || '#fff',
+                            backgroundColor: `${crySpec.colorAccent}25`,
+                            borderColor: crySpec.colorAccent,
                           }}
                         >
-                          {matchingSpec?.animationName.replace('anim-core-', '')}
+                          {crySpec.piece === 'P'
+                            ? '♟'
+                            : crySpec.piece === 'N'
+                            ? '♞'
+                            : crySpec.piece === 'B'
+                            ? '♝'
+                            : crySpec.piece === 'R'
+                            ? '♜'
+                            : crySpec.piece === 'Q'
+                            ? '♛'
+                            : '♚'}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-amber-300">{crySpec.name}</span>
+                            <span className="px-2 py-0.2 rounded-full bg-amber-400 text-slate-950 text-[9px] font-black">
+                              {crySpec.pointsValue.toLocaleString()} PTS
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-300 leading-tight mt-0.5">{crySpec.description}</p>
+                          <div className="text-[9px] font-mono text-cyan-300 mt-0.5">
+                            {crySpec.animationTitle} • {crySpec.effectModifierTitle}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => {
+                            playCinematicSound(crySpec.soundType);
+                            setVfxFeedbackToast({
+                              message: `🔊 Playing ${crySpec.pieceName} Synthesized Cry Audio`,
+                              type: 'info',
+                            });
+                          }}
+                          className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-cyan-300 text-xs font-bold border border-cyan-400/40 flex items-center gap-1 transition"
+                        >
+                          <Volume2 className="w-3.5 h-3.5" />
+                          <span>Sound</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            const res = triggerPieceCryState(crySpec.piece, 'e4');
+                            addPoints(2500, `Simulated High-Stress Cry (${crySpec.piece})`);
+                            setUserPointsState(getUserPoints());
+                            
+                            const coords = getSquareCoords('e4');
+                            triggerParticleBurst(coords.x, coords.y, [crySpec.colorAccent, '#00d2ff', '#ffffff', '#ef4444'], 36);
+
+                            const shockId = Date.now();
+                            setShockwaves((prev) => [
+                              ...prev,
+                              {
+                                id: shockId,
+                                x: coords.x,
+                                y: coords.y,
+                                color: crySpec.colorAccent,
+                                glowColor: crySpec.colorAccent,
+                                size: coords.size,
+                              },
+                            ]);
+                            setTimeout(() => setShockwaves((prev) => prev.filter((s) => s.id !== shockId)), 800);
+
+                            const badgeId = Date.now();
+                            setFloatingBadges((prev) => [
+                              ...prev,
+                              {
+                                id: badgeId,
+                                x: coords.x,
+                                y: coords.y,
+                                text: `😭 ${crySpec.name}: +2,500 PTS`,
+                                color: 'text-amber-300 font-black',
+                                bg: 'bg-gradient-to-r from-amber-950/95 to-slate-950/95',
+                                border: 'border-amber-400',
+                              },
+                            ]);
+                            setTimeout(() => setFloatingBadges((prev) => prev.filter((b) => b.id !== badgeId)), 1400);
+
+                            const ghostId = Date.now();
+                            setCryGhosts((prev) => [
+                              ...prev,
+                              {
+                                id: ghostId,
+                                square: 'e4',
+                                pieceType: crySpec.piece.toLowerCase() as 'p' | 'n' | 'b' | 'r' | 'q' | 'k',
+                                pieceColor: 'w',
+                              },
+                            ]);
+                            setTimeout(() => setCryGhosts((prev) => prev.filter((cg) => cg.id !== ghostId)), 1200);
+
+                            if (vfxSettings.screenShake) {
+                              setIsBoardShaking(true);
+                              setTimeout(() => setIsBoardShaking(false), 420);
+                            }
+
+                            setVfxFeedbackToast({
+                              message: `😭 Triggered ${crySpec.name}! 3D Tears Streaming & +2,500 PTS Awarded!`,
+                              type: 'success',
+                            });
+                            setTimeout(() => setVfxFeedbackToast((curr) => (curr?.type === 'success' ? null : curr)), 3500);
+                          }}
+                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-110 text-slate-950 text-xs font-black shadow-[0_0_15px_rgba(245,158,11,0.5)] flex items-center gap-1.5 transition active:scale-95 border border-amber-300"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Trigger Cry State (+2,500 PTS)</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[1, 2, 3, 4].map((sIndex) => {
+                    const matchingSpec = VARIATIONS_96_MATRIX.find(
+                      (v) =>
+                        v.piece === testerPieceFilter &&
+                        v.action === testerActionFilter &&
+                        v.styleIndex === sIndex
+                    );
+                    const matchingCatalog = findCatalogItem(
+                      testerPieceFilter,
+                      testerActionFilter,
+                      sIndex as 1 | 2 | 3 | 4
+                    );
+                    const isOwned = matchingCatalog ? Boolean(masterInventory[matchingCatalog.id]) : false;
+                    const isEquipped = matchingCatalog
+                      ? equippedMaster[matchingCatalog.piece] === matchingCatalog.id
+                      : false;
+
+                    if (filterPurchasedOnly && !isOwned) {
+                      return (
+                        <div
+                          key={sIndex}
+                          className="p-2.5 rounded-xl bg-slate-950/40 border border-dashed border-white/10 flex flex-col justify-center items-center text-center opacity-40 py-4"
+                        >
+                          <Lock className="w-3.5 h-3.5 text-slate-500 mb-1" />
+                          <span className="text-[10px] font-bold text-slate-500">Style {sIndex} Locked</span>
+                          <span className="text-[8px] text-slate-600">1,000 PTS</span>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <button
+                        key={sIndex}
+                        onClick={() =>
+                          handleSelectOrTriggerVariation(
+                            testerPieceFilter,
+                            testerActionFilter,
+                            sIndex as 1 | 2 | 3 | 4
+                          )
+                        }
+                        style={{
+                          borderColor: isOwned ? matchingSpec?.colorAccent || '#00f2fe' : 'rgba(255,255,255,0.12)',
+                        }}
+                        className={`p-2.5 rounded-xl text-left transition transform hover:-translate-y-0.5 active:scale-95 group flex flex-col justify-between gap-1.5 shadow-md relative overflow-hidden ${
+                          isOwned
+                            ? isEquipped
+                              ? 'bg-gradient-to-br from-slate-900 to-emerald-950/40 border-2 shadow-[0_0_12px_rgba(16,185,129,0.25)]'
+                              : 'bg-slate-950/90 hover:bg-slate-900 border'
+                            : 'bg-slate-950/60 hover:bg-slate-900/80 border border-dashed hover:border-amber-400/50'
+                        }`}
+                      >
+                        {/* Top Header: Style Number + Ownership Status */}
+                        <div className="flex items-center justify-between w-full">
+                          <span
+                            className={`text-[11px] font-black ${
+                              isOwned ? 'text-white group-hover:text-cyan-300' : 'text-slate-300'
+                            }`}
+                          >
+                            Style {sIndex}
+                          </span>
+
+                          {isOwned ? (
+                            isEquipped ? (
+                              <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-emerald-500 text-slate-950 flex items-center gap-0.5 shadow-sm">
+                                <Check className="w-2.5 h-2.5 stroke-[3]" /> EQUIPPED
+                              </span>
+                            ) : (
+                              <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">
+                                ✨ OWNED
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-400/30 flex items-center gap-0.5">
+                              <Lock className="w-2 h-2" /> 1,000 PTS
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Animation Technical Tag */}
+                        <div className="flex items-center justify-between">
+                          <span
+                            className="text-[9px] font-mono px-1.5 py-0.5 rounded font-bold"
+                            style={{
+                              backgroundColor: `${matchingSpec?.colorAccent || '#fff'}20`,
+                              color: matchingSpec?.colorAccent || '#fff',
+                            }}
+                          >
+                            {matchingSpec?.animationName.replace('anim-core-', '')}
+                          </span>
+                        </div>
+
+                        <span className="text-[9px] text-slate-400 leading-tight line-clamp-1">
+                          {matchingSpec?.description || 'Custom piece state'}
+                        </span>
+
+                        {/* Bottom Hint */}
+                        <div className="text-[8px] font-bold text-slate-500 group-hover:text-slate-300 mt-0.5 flex items-center gap-1">
+                          {isOwned ? (
+                            isEquipped ? (
+                              <span className="text-emerald-400">✓ Active in main game</span>
+                            ) : (
+                              <span>▶ Click to test & equip</span>
+                            )
+                          ) : (
+                            <span className="text-amber-400/80">🔒 Click to unlock (1k PTS)</span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Equipped Piece Loadout Summary Tray */}
+              <div className="mt-1 p-2 rounded-xl bg-slate-950/70 border border-white/10 flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-wide flex items-center gap-1">
+                    <Crown className="w-3 h-3 text-amber-400" />
+                    Equipped Loadout for Main Chess:
+                  </span>
+                  {onOpenMasterHub && (
+                    <button
+                      onClick={onOpenMasterHub}
+                      className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 underline flex items-center gap-1"
+                    >
+                      <ShoppingBag className="w-2.5 h-2.5" />
+                      Open Full 96 FX Hub
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                  {(
+                    [
+                      { code: 'P', name: 'Pawn', icon: '♟' },
+                      { code: 'N', name: 'Knight', icon: '♞' },
+                      { code: 'B', name: 'Bishop', icon: '♝' },
+                      { code: 'R', name: 'Rook', icon: '♜' },
+                      { code: 'Q', name: 'Queen', icon: '♛' },
+                      { code: 'K', name: 'King', icon: '♚' },
+                    ] as const
+                  ).map((pInfo) => {
+                    const equippedItem = getEquippedItemForPiece(pInfo.code);
+                    return (
+                      <div
+                        key={pInfo.code}
+                        className={`p-1.5 rounded-lg border text-[9px] flex flex-col justify-between transition ${
+                          equippedItem
+                            ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200'
+                            : 'bg-slate-900/60 border-white/5 text-slate-400'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-white flex items-center gap-1">
+                            <span>{pInfo.icon}</span> {pInfo.name}
+                          </span>
+                          {equippedItem && (
+                            <button
+                              onClick={() => handleUnequipPiece(pInfo.name as MasterPieceType)}
+                              title="Unequip effect"
+                              className="text-slate-400 hover:text-rose-400"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          )}
+                        </div>
+                        <span className="truncate text-[8px] font-mono mt-0.5">
+                          {equippedItem ? equippedItem.name : 'Standard (None)'}
                         </span>
                       </div>
-                      <span className="text-[9px] text-slate-400 leading-tight line-clamp-1">
-                        {matchingSpec?.description || 'Custom piece state'}
-                      </span>
-                    </button>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Feedback Toast */}
+      <AnimatePresence>
+        {vfxFeedbackToast && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+            className={`w-full mb-2 p-2.5 rounded-xl border text-xs font-bold flex items-center justify-between shadow-xl backdrop-blur-md z-40 ${
+              vfxFeedbackToast.type === 'success'
+                ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200 shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                : vfxFeedbackToast.type === 'error'
+                ? 'bg-rose-950/90 border-rose-400 text-rose-200 shadow-[0_0_15px_rgba(244,63,94,0.3)]'
+                : 'bg-slate-900/95 border-amber-400/50 text-amber-200 shadow-[0_0_15px_rgba(251,191,36,0.2)]'
+            }`}
+          >
+            <span>{vfxFeedbackToast.message}</span>
+            <button
+              onClick={() => setVfxFeedbackToast(null)}
+              className="p-1 rounded hover:bg-white/10 text-white/60 hover:text-white"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Instant 1-Click Unlock / Purchase Modal */}
+      <AnimatePresence>
+        {selectedUnlockItem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-slate-900 border-2 border-amber-400/50 rounded-3xl p-6 max-w-md w-full shadow-2xl relative overflow-hidden"
+            >
+              <button
+                onClick={() => setSelectedUnlockItem(null)}
+                className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-white/10 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-4">
+                <div
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl border"
+                  style={{
+                    backgroundColor: `${selectedUnlockItem.glowColor}25`,
+                    borderColor: selectedUnlockItem.glowColor,
+                  }}
+                >
+                  <Lock className="w-6 h-6 text-amber-400" />
+                </div>
+                <div>
+                  <span className="text-xs font-black text-amber-400 uppercase tracking-wider">
+                    Unlock Cinematic Effect
+                  </span>
+                  <h3 className="text-lg font-black text-white leading-tight">
+                    {selectedUnlockItem.name}
+                  </h3>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-white/10 mb-4 flex flex-col gap-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Target Piece:</span>
+                  <span className="font-bold text-white">{selectedUnlockItem.piece}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Category:</span>
+                  <span className="font-bold text-cyan-300">{selectedUnlockItem.category}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Animation Style:</span>
+                  <span className="font-bold text-purple-300">Style #{selectedUnlockItem.variantIndex}</span>
+                </div>
+                <p className="text-xs text-slate-300 mt-1 pt-2 border-t border-white/10 leading-relaxed">
+                  {selectedUnlockItem.desc}
+                </p>
+              </div>
+
+              {/* Price & Balance Row */}
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/10 to-amber-600/10 border border-amber-400/30 mb-5 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] text-amber-300 font-bold uppercase tracking-wider block">
+                    Unlock Price
+                  </span>
+                  <span className="text-lg font-black text-amber-400">1,000 PTS</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                    Your Points
+                  </span>
+                  <span
+                    className={`text-lg font-black ${
+                      userPoints >= 1000 ? 'text-emerald-400' : 'text-rose-400'
+                    }`}
+                  >
+                    {userPoints.toLocaleString()} PTS
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              {userPoints >= 1000 ? (
+                <button
+                  onClick={() => handleUnlockItemDirectly(selectedUnlockItem)}
+                  className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-sm shadow-[0_0_20px_rgba(251,191,36,0.4)] transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <Unlock className="w-4 h-4" />
+                  <span>Unlock & Equip to Chess Board</span>
+                </button>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <div className="p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-200 text-xs font-bold text-center">
+                    You need {(1000 - userPoints).toLocaleString()} more PTS to unlock this effect!
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {onOpenDailyWheel && (
+                      <button
+                        onClick={() => {
+                          setSelectedUnlockItem(null);
+                          onOpenDailyWheel();
+                        }}
+                        className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs hover:opacity-90 transition flex items-center justify-center gap-1.5"
+                      >
+                        <span>🎡 Daily Wheel</span>
+                      </button>
+                    )}
+                    {onOpenQuests && (
+                      <button
+                        onClick={() => {
+                          setSelectedUnlockItem(null);
+                          onOpenQuests();
+                        }}
+                        className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black text-xs hover:opacity-90 transition flex items-center justify-center gap-1.5"
+                      >
+                        <span>📜 Daily Quests</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
@@ -1369,9 +2071,12 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                     </span>
                   )}
 
-                  {/* Chess Piece Vector Render with Spring Animations & 96-State Occupying Classes (Only for Equipped Items) */}
+                  {/* Chess Piece Vector Render with Spring Animations, 96-State Occupying Classes & 3D High-Stress Tear-Cry States */}
                   {piece && (() => {
                     const equippedItem = getEquippedItemForPiece(piece.type);
+                    const stressThreat = highStressThreatMap[square];
+                    const isUnderHeavyThreat = Boolean(stressThreat && stressThreat.isHighStress);
+
                     return (
                       <motion.div
                         layoutId={pieceIds[square] || `${piece.color}_${piece.type}_${square}`}
@@ -1401,11 +2106,37 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                           isSelected ? 'scale-110 -translate-y-1 drop-shadow-2xl' : 'hover:scale-105'
                         }`}
                       >
-                        <ChessPiece
-                          type={piece.type as 'p' | 'n' | 'b' | 'r' | 'q' | 'k'}
-                          color={piece.color as 'w' | 'b'}
-                        />
+                        <div
+                          className={`piece-wrapper ${isUnderHeavyThreat ? 'under-attack' : ''}`}
+                          data-current={piece.type.toUpperCase()}
+                          data-piece={piece.type.toUpperCase()}
+                        >
+                          <ChessPiece
+                            type={piece.type as 'p' | 'n' | 'b' | 'r' | 'q' | 'k'}
+                            color={piece.color as 'w' | 'b'}
+                          />
+                          {isUnderHeavyThreat && (
+                            <>
+                              <div className="tear tear-left" />
+                              <div className="tear tear-right" />
+                            </>
+                          )}
+                        </div>
                       </motion.div>
+                    );
+                  })()}
+
+                  {/* High-Stress Multi-Threat Badge Indicator */}
+                  {(() => {
+                    const stressThreat = highStressThreatMap[square];
+                    if (!stressThreat || !stressThreat.isHighStress) return null;
+                    return (
+                      <div
+                        title={`${stressThreat.pieceCode} is under simultaneous attack by ${stressThreat.attackerCount} enemy pieces (+2,500 PTS Cry Active)!`}
+                        className="absolute top-0.5 right-0.5 z-30 px-1 py-0.2 rounded-full bg-gradient-to-r from-red-600 to-amber-600 border border-amber-300 text-[8px] sm:text-[9px] font-black text-white shadow-[0_0_10px_#ef4444] animate-pulse flex items-center gap-0.5"
+                      >
+                        <span>⚠️ {stressThreat.attackerCount}⚔️</span>
+                      </div>
                     );
                   })()}
 
@@ -1421,6 +2152,22 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({
                         <ChessPiece
                           type={ghost.pieceType}
                           color={ghost.pieceColor}
+                        />
+                      </div>
+                    ))}
+
+                  {/* Exclusive Cry State Overlay Animation */}
+                  {cryGhosts
+                    .filter((c) => c.square === square)
+                    .map((cg) => (
+                      <div
+                        key={cg.id}
+                        data-piece={cg.pieceType.toUpperCase()}
+                        className="piece-cry absolute inset-0 z-35 pointer-events-none p-0.5 sm:p-1 flex items-center justify-center"
+                      >
+                        <ChessPiece
+                          type={cg.pieceType}
+                          color={cg.pieceColor}
                         />
                       </div>
                     ))}

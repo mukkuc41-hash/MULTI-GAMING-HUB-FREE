@@ -644,7 +644,7 @@ export const CommunitySocialModal: React.FC<CommunitySocialModalProps> = ({
                         </span>
                       </div>
                       <p className="text-[10px] text-indigo-200/60 mt-0.5">
-                        {c.members} Members • {c.totalXp.toLocaleString()} Total XP
+                        {c.members} Members • {((c.totalXp) ?? 0).toLocaleString()} Total XP
                       </p>
                     </div>
                   </div>

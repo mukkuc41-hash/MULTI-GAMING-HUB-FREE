@@ -82,7 +82,7 @@ export const QuestPanel: React.FC<QuestPanelProps> = ({
     if (reward > 0) {
       playCinematicSound('checkmate');
       soundFx.playGameOver(true);
-      setClaimToast(`Claimed +${reward.toLocaleString()} PTS for "${quest.title}"!`);
+      setClaimToast(`Claimed +${(reward ?? 0).toLocaleString()} PTS for "${quest.title}"!`);
       setTimeout(() => setClaimToast(null), 3500);
       setQuests(getActiveRandomQuests());
       setPoints(getUserPoints());
@@ -133,7 +133,7 @@ export const QuestPanel: React.FC<QuestPanelProps> = ({
             <div>
               <div className="text-[10px] uppercase font-bold text-slate-400">Your Wallet</div>
               <div className="text-base font-extrabold text-amber-300 font-mono leading-none">
-                {points.toLocaleString()} PTS
+                {(points ?? 0).toLocaleString()} PTS
               </div>
             </div>
           </div>
@@ -239,7 +239,7 @@ export const QuestPanel: React.FC<QuestPanelProps> = ({
                         {quest.difficulty}
                       </span>
                       <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[10px] font-black font-mono">
-                        +{quest.rewardPts.toLocaleString()} PTS
+                        +{((quest?.rewardPts) ?? 0).toLocaleString()} PTS
                       </span>
                     </div>
 
@@ -339,7 +339,7 @@ export const QuestPanel: React.FC<QuestPanelProps> = ({
               <div className="p-2.5 bg-black/40 rounded-xl border border-white/5 text-xs text-slate-300 flex items-center justify-between">
                 <span>Hatricks achieved this session:</span>
                 <span className="font-extrabold text-emerald-400 font-mono">
-                  {hatrickState.hatricksCompletedInSession} Completed (Total: +{(hatrickState.hatricksCompletedInSession * 2000).toLocaleString()} PTS)
+                  {hatrickState?.hatricksCompletedInSession ?? 0} Completed (Total: +{(((hatrickState?.hatricksCompletedInSession ?? 0) * 2000)).toLocaleString()} PTS)
                 </span>
               </div>
             </div>
